@@ -143,7 +143,7 @@ function DualEditorMain({ worldId, levelId, level, worldSize }: { worldId: strin
                 {(uiMode === 'typewriter' && !lockUIMode) ?
                   <TypewriterInterfaceWrapper world={worldId} level={levelId} data={level} worldSize={worldSize}/>
                   :
-                  <Main key={`${worldId}/${levelId}`} world={worldId} level={levelId} data={level} />
+                  <CodeEditorInterface key={`${worldId}/${levelId}`} world={worldId} level={levelId} data={level} />
                 }
               </RpcSessionWrapper>
             </ProgressContext.Provider>
@@ -183,16 +183,12 @@ function ExerciseStatement({ data, showLeanStatement = false }) {
 
 // TODO: This is only used in `EditorInterface`
 // while `TypewriterInterface` has this copy-pasted in.
-export function Main(props: { world: string, level: number, data: LevelInfo}) {
+// Shared component for displaying goals and hints
+function ProofDisplay({ curPos, isTypewriter = false }) {
   let { t } = useTranslation()
-  const ec = React.useContext(EditorContext);
-  const gameId = React.useContext(GameIdContext)
-  const {worldId, levelId} = React.useContext(WorldLevelIdContext)
-
   const proofState = React.useContext(ProofStateContext)
   const {selectedStep, setSelectedStep} = React.useContext(SelectionContext)
   const { setDeletedChat, showHelp, setShowHelp } = React.useContext(DeletedChatContext)
-
 
   function toggleSelection(line: number) {
     return (ev) => {
@@ -204,42 +200,51 @@ export function Main(props: { world: string, level: number, data: LevelInfo}) {
       }
     }
   }
-  console.debug(`template: ${props.data?.template}`)
 
-  // React.useEffect (() => {
-  //   if (props.data.template) {
-  //     let code: string = selectCode(gameId, worldId, levelId)(store.getState())
-  //     if (!code.length) {
-  //       //models.push(monaco.editor.createModel(code, 'lean4', uri))
-  //     }
-  //   }
-  // }, [props.data.template])
+  if (!(proofState.proof?.steps && curPos)) {
+    return null
+  }
 
-  /* Set up updates to the global infoview state on editor events. */
-  const config = useEventResult(ec.events.changedInfoviewConfig) ?? defaultInfoviewConfig;
+  const pos = curPos.line + (curPos.character == 0 ? 0 : 1)
+  const isLast = pos === proofState.proof.steps.length - (lastStepHasErrors(proofState.proof) ? 2 : 1)
 
-  const [allProgress, _1] = useServerNotificationState(
-    '$/lean/fileProgress',
-    new Map<DocumentUri, LeanFileProgressProcessingInfo[]>(),
-    async (params: LeanFileProgressParams) => (allProgress) => {
-      const newProgress = new Map(allProgress);
-      return newProgress.set(params.textDocument.uri, params.processing);
-    },
-    []
-  );
+  return (
+    <div className="infoview vscode-light">
+      {!(proofState as any).initializing && proofState.proof?.completedWithWarnings &&
+        <div className="level-completed">
+          {proofState.proof?.completed ? t("Level completed! 🎉") : t("Level completed with warnings 🎭")}
+        </div>
+      }
+      <Infos />
+      {proofState.proof.steps[pos]?.goals &&
+        <GoalsTabs
+          proofStep={proofState.proof.steps[pos]}
+          last={isLast}
+          onClick={toggleSelection(pos)}
+          onGoalChange={isLast ? (n) => console.debug(`Goal ${n} selected`) : undefined}
+        />
+      }
+      <Hints hints={proofState.proof?.steps[pos]?.goals[0]?.hints}
+        showHidden={showHelp.has(pos)} step={pos}
+        selected={selectedStep} toggleSelection={toggleSelection(pos)}
+        lastLevel={pos === proofState.proof.steps.length - 1}/>
+      <MoreHelpButton selected={curPos?.line}/>
+    </div>
+  )
+}
 
-  const curUri = useEventResult(ec.events.changedCursorLocation, loc => loc?.uri);
+function CodeEditorInterface(props: { world: string, level: number, data: LevelInfo}) {
+  let { t } = useTranslation()
+  const ec = React.useContext(EditorContext);
 
   const curPos: DocumentPosition | undefined =
     useEventResult(ec.events.changedCursorLocation, loc => loc ? { uri: loc.uri, ...loc.range.start } : undefined)
 
+  const {selectedStep, setSelectedStep} = React.useContext(SelectionContext)
+
   // Effect when the cursor changes in the editor
   React.useEffect(() => {
-    // TODO: this is a bit of a hack and will yield unexpected behaviour if lines
-    // are indented.
     let newPos = curPos?.line + (curPos?.character == 0 ? 0 : 1)
-
-    // scroll the chat along
     setSelectedStep(newPos)
   }, [curPos])
 
@@ -257,45 +262,14 @@ export function Main(props: { world: string, level: number, data: LevelInfo}) {
   const serverVersion =
     useEventResult(ec.events.serverRestarted, result => new ServerVersion(result.serverInfo?.version ?? ''))
   const serverStoppedResult = useEventResult(ec.events.serverStopped);
-  // NB: the cursor may temporarily become `undefined` when a file is closed. In this case
-  // it's important not to reconstruct the `WithBlah` wrappers below since they contain state
-  // that we want to persist.
-  let ret
+
   if (!serverVersion) {
-    ret = <p>{t("Waiting for Lean server to start…")}</p>
+    return <p>{t("Waiting for Lean server to start…")}</p>
   } else if (serverStoppedResult) {
-    ret = <div><p>{serverStoppedResult.message}</p><p className="error">{serverStoppedResult.reason}</p></div>
-  } else {
-    ret = <div className="infoview vscode-light">
-      {!(proofState as any).initializing && proofState.proof?.completedWithWarnings &&
-        <div className="level-completed">
-          {proofState.proof?.completed ? t("Level completed! 🎉") : t("Level completed with warnings 🎭")}
-        </div>
-      }
-      <Infos />
-      {curPos && proofState.proof?.steps && (() => {
-        const pos = curPos.line + (curPos.character == 0 ? 0 : 1)
-        const isLast = pos === proofState.proof.steps.length - (lastStepHasErrors(proofState.proof) ? 2 : 1)
-        return <>
-          {proofState.proof.steps[pos]?.goals &&
-            <GoalsTabs
-              proofStep={proofState.proof.steps[pos]}
-              last={isLast}
-              onClick={toggleSelection(pos)}
-              onGoalChange={isLast ? (n) => console.debug(`Goal ${n} selected`) : undefined}
-            />
-          }
-          <Hints hints={proofState.proof?.steps[pos]?.goals[0]?.hints}
-            showHidden={showHelp.has(pos)} step={pos}
-            selected={selectedStep} toggleSelection={toggleSelection(pos)}
-            lastLevel={pos === proofState.proof.steps.length - 1}/>
-        </>
-      })()}
-      <MoreHelpButton selected={curPos?.line}/>
-    </div>
+    return <div><p>{serverStoppedResult.message}</p><p className="error">{serverStoppedResult.reason}</p></div>
   }
 
-  return ret
+  return <ProofDisplay curPos={curPos} />
 }
 
 const goalFilter = {
@@ -550,13 +524,8 @@ export function TypewriterInterface({props}) {
         {image &&
           <img className="contain" src={path.join("data", gameId, image)} alt="" />
         }
-
       </div>
-      <div className="tmp-pusher">
-        {/* <div className="world-image-container empty">
-
-        </div> */}
-      </div>
+      <div className="tmp-pusher" />
       <div className='proof' ref={proofPanelRef}>
         <ExerciseStatement data={props.data} />
         {crashed ? <div>
@@ -578,7 +547,6 @@ export function TypewriterInterface({props}) {
                 </div>
             </div>
           })}
-
         </div> : proof?.steps.length ?
           <>
             {proof?.steps.map((step, i) => {
