@@ -412,6 +412,8 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
           uiMode,
           typewriterInput,
           lockUIMode,
+          processing: false,
+          setProcessing: React.useState<boolean>(false)[1],
           setUIMode,
           setTypewriterInput,
           setLockUIMode,
@@ -423,6 +425,27 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
               const nextIndex = (currentIndex + 1) % modes.length;
               setUIMode(modes[nextIndex]);
             }
+          },
+          runCommand: () => {
+            if (!editor) return;
+
+            // Reset deleted chat after a new error-free command
+            setDeletedChat([]);
+
+            const pos = editor.getPosition();
+            if (typewriterInput) {
+              editor.executeEdits("typewriter", [{
+                range: monaco.Selection.fromPositions(
+                  pos,
+                  editor.getModel().getFullModelRange().getEndPosition()
+                ),
+                text: typewriterInput.trim() + "\n",
+                forceMoveMarkers: false
+              }]);
+              setTypewriterInput('');
+            }
+
+            editor.setPosition(pos);
           }
         }}>
           <ProofStateProvider>

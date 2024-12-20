@@ -75,24 +75,30 @@ export interface InputModeState {
   uiMode: UIMode;
   typewriterInput: string;
   lockUIMode: boolean;
+  processing: boolean;
 }
 
 export interface InputModeContextType extends InputModeState {
   setUIMode: (mode: UIMode) => void;
   setTypewriterInput: React.Dispatch<React.SetStateAction<string>>;
   setLockUIMode: React.Dispatch<React.SetStateAction<boolean>>;
+  setProcessing: React.Dispatch<React.SetStateAction<boolean>>;
   uiModeCases: Record<UIMode, { icon: any, labelText: string }>;
   toggleInputMode: () => void;
+  runCommand: () => void;
 }
 
 export const InputModeContext = React.createContext<InputModeContextType>({
   uiMode: 'typewriter',
   typewriterInput: "",
   lockUIMode: false,
+  processing: false,
   setUIMode: () => { },
   setTypewriterInput: () => { },
   setLockUIMode: () => { },
+  setProcessing: () => { },
   toggleInputMode: () => { },
+  runCommand: () => { },
   uiModeCases: {
     codeEditor: {
       icon: Icons.codeEditor,

@@ -17,7 +17,7 @@ import { InteractiveDiagnostic, RpcSessionAtPos, getInteractiveDiagnostics } fro
 import { Diagnostic } from 'vscode-languageserver-types';
 import { DocumentPosition } from '../../../../node_modules/lean4-infoview/src/infoview/util';
 import { RpcContext } from '../../../../node_modules/lean4-infoview/src/infoview/rpcSessions';
-import { DeletedChatContext, InputModeContext, MonacoEditorContext, ProofContext } from './context'
+import { DeletedChatContext, InputModeContext, MonacoEditorContext } from './context'
 import { goalsToString, lastStepHasErrors } from './goals'
 import { GameHint, ProofState } from './rpc_api'
 import { useTranslation } from 'react-i18next'
@@ -86,35 +86,11 @@ export function Typewriter({disabled}: {disabled?: boolean}) {
   const proofState = React.useContext(ProofStateContext)
 
   const inputRef = useRef()
+  const { runCommand } = React.useContext(InputModeContext)
+
 
   const {proof, interimDiags, updateInterimDiags, setCrashed, loadProofState} = React.useContext(ProofStateContext)
   const {setDeletedChat} = React.useContext(DeletedChatContext)
-
-  // Run the command
-  const runCommand = React.useCallback(() => {
-    if (processing) {return}
-
-    // TODO: Desired logic is to only reset this after a new *error-free* command has been entered
-    setDeletedChat([])
-
-    const pos = editor.getPosition()
-    if (typewriterInput) {
-      setProcessing(true)
-      editor.executeEdits("typewriter", [{
-        range: monaco.Selection.fromPositions(
-          pos,
-          editor.getModel().getFullModelRange().getEndPosition()
-        ),
-        text: typewriterInput.trim() + "\n",
-        forceMoveMarkers: false
-      }])
-      setTypewriterInput('')
-      // Load proof after executing edits
-      loadProofState()
-    }
-
-    editor.setPosition(pos)
-  }, [typewriterInput, editor, loadProofState])
 
   useEffect(() => {
     if (oneLineEditor && oneLineEditor.getValue() !== typewriterInput) {
@@ -211,6 +187,7 @@ export function Typewriter({disabled}: {disabled?: boolean}) {
   }, [oneLineEditor, runCommand])
 
 
+
   /** Process the entered command */
   const handleSubmit : React.FormEventHandler<HTMLFormElement> = (ev) => {
     ev.preventDefault()
@@ -218,7 +195,7 @@ export function Typewriter({disabled}: {disabled?: boolean}) {
   }
 
   // do not display if the proof is completed (with potential warnings still present)
-  return <div className={`typewriter${proof?.completedWithWarnings ? ' hidden' : ''}${disabled || proofState.uiMode !== 'typewriter' ? ' disabled' : ''}`}>
+  return <div className={`typewriter${proof?.completedWithWarnings ? ' hidden' : ''}`}>
       <form onSubmit={handleSubmit}>
         <div className="typewriter-input-wrapper">
           <div ref={inputRef} className="typewriter-input" />
