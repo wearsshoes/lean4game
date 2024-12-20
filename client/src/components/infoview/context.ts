@@ -71,17 +71,28 @@ export const DeletedChatContext = React.createContext<{
 
 export type UIMode = 'typewriter' | 'codeEditor' // | 'dragDrop'
 
-export const InputModeContext = React.createContext<{
-  typewriterInput: string,
-  setTypewriterInput: React.Dispatch<React.SetStateAction<string>>,
-  lockUIMode: boolean,
-  setLockUIMode: React.Dispatch<React.SetStateAction<boolean>>,
-  uiModeCases: Record<UIMode, { icon: any, labelText: string }>,
-}>({
+export interface InputModeState {
+  uiMode: UIMode;
+  typewriterInput: string;
+  lockUIMode: boolean;
+}
+
+export interface InputModeContextType extends InputModeState {
+  setUIMode: (mode: UIMode) => void;
+  setTypewriterInput: React.Dispatch<React.SetStateAction<string>>;
+  setLockUIMode: React.Dispatch<React.SetStateAction<boolean>>;
+  uiModeCases: Record<UIMode, { icon: any, labelText: string }>;
+  toggleInputMode: () => void;
+}
+
+export const InputModeContext = React.createContext<InputModeContextType>({
+  uiMode: 'typewriter',
   typewriterInput: "",
-  setTypewriterInput: () => { },
   lockUIMode: false,
+  setUIMode: () => { },
+  setTypewriterInput: () => { },
   setLockUIMode: () => { },
+  toggleInputMode: () => { },
   uiModeCases: {
     codeEditor: {
       icon: Icons.codeEditor,
@@ -91,9 +102,5 @@ export const InputModeContext = React.createContext<{
       icon: Icons.typewriter,
       labelText: "Typewriter mode"
     },
-    // dragDrop: {
-    //   icon: Icons.dragDrop,
-    //   labelText: "Drag & Drop mode"
-    // }
   }
 });

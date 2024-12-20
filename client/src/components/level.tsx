@@ -408,7 +408,23 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
     <div style={level.isLoading ? null : {display: "none"}} className="app-content loading"><CircularProgress /></div>
     <DeletedChatContext.Provider value={{deletedChat, setDeletedChat, showHelp, setShowHelp}}>
       <SelectionContext.Provider value={{selectedStep, setSelectedStep}}>
-        <InputModeContext.Provider value={{uiMode, setUIMode, typewriterInput, setTypewriterInput, lockUIMode, setLockUIMode, uiModeCases}}>
+        <InputModeContext.Provider value={{
+          uiMode,
+          typewriterInput,
+          lockUIMode,
+          setUIMode,
+          setTypewriterInput,
+          setLockUIMode,
+          uiModeCases,
+          toggleInputMode: () => {
+            if (!lockUIMode) {
+              const modes = Object.keys(uiModeCases) as UIMode[];
+              const currentIndex = modes.indexOf(uiMode);
+              const nextIndex = (currentIndex + 1) % modes.length;
+              setUIMode(modes[nextIndex]);
+            }
+          }
+        }}>
           <ProofStateProvider>
             <EditorContext.Provider value={editorConnection}>
               <MonacoEditorContext.Provider value={editor}>

@@ -101,18 +101,7 @@ function PreviousButton({setNavOpen}) {
 function InputModeButton({setNavOpen, isDropdown}) {
   const { t } = useTranslation()
   const {levelId} = React.useContext(WorldLevelIdContext)
-  const {uiMode, setUIMode, lockUIMode, uiModeCases} = React.useContext(InputModeContext)
-
-  /** toggle input mode if allowed */
-  function toggleInputMode(ev: React.MouseEvent) {
-    if (!lockUIMode) {
-      const modes = Object.keys(uiModeCases) as UIMode[];
-      const currentIndex = modes.indexOf(uiMode);
-      const nextIndex = (currentIndex + 1) % modes.length;
-      setUIMode(modes[nextIndex]);
-      setNavOpen(false);
-    }
-  }
+  const {uiMode, lockUIMode, uiModeCases, toggleInputMode} = React.useContext(InputModeContext)
 
   // Determine the current mode's properties
   const currentMode = lockUIMode ? null : uiModeCases[uiMode]
@@ -120,7 +109,7 @@ function InputModeButton({setNavOpen, isDropdown}) {
   return <Button
       className={`btn btn-inverted ${isDropdown? '' : 'toggle-width'}`} disabled={levelId <= 0 || lockUIMode}
       inverted="true" to=""
-      onClick={(ev) => toggleInputMode(ev)}
+      onClick={(ev) => {toggleInputMode(); setNavOpen(false);}}
       title={lockUIMode ? t("Editor mode is enforced!") : t(currentMode?.labelText)}>
     <FontAwesomeIcon icon={lockUIMode ? Icons.typewriter : currentMode?.icon} />
     {isDropdown && <>&nbsp;{lockUIMode ? t("Editor mode is enforced!") : t(currentMode?.labelText)}</>}
