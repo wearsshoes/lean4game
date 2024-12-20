@@ -57,6 +57,7 @@ import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
 
 import { UIMode } from './infoview/context'
+import { Icons } from '../icons/icons'
 
 monacoSetup()
 
@@ -249,6 +250,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
   const [lockUIMode, setLockUIMode] = useState(false)
   const [typewriterInput, setTypewriterInput] = useState("")
   const lastLevel = levelId >= gameInfo.data?.worldSize[worldId]
+  const uiModeCases = useContext(InputModeContext).uiModeCases
 
   // impressum pop-up
   function toggleImpressum() {setImpressum(!impressum)}
@@ -411,7 +413,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
     <div style={level.isLoading ? null : {display: "none"}} className="app-content loading"><CircularProgress /></div>
     <DeletedChatContext.Provider value={{deletedChat, setDeletedChat, showHelp, setShowHelp}}>
       <SelectionContext.Provider value={{selectedStep, setSelectedStep}}>
-        <InputModeContext.Provider value={{uiMode, setUIMode, typewriterInput, setTypewriterInput, lockUIMode: lockUIMode, setLockUIMode: setLockUIMode}}>
+        <InputModeContext.Provider value={{uiMode, setUIMode, typewriterInput, setTypewriterInput, lockUIMode, setLockUIMode, uiModeCases}}>
           <ProofContext.Provider value={{proof, setProof, interimDiags, setInterimDiags, crashed: isCrashed, setCrashed: setIsCrashed}}>
             <EditorContext.Provider value={editorConnection}>
               <MonacoEditorContext.Provider value={editor}>

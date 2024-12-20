@@ -7,6 +7,7 @@ import { InteractiveDiagnostic } from '@leanprover/infoview-api';
 import { Diagnostic } from 'vscode-languageserver-types'
 import { GameHint, InteractiveGoal, InteractiveTermGoal,InteractiveGoalsWithHints, ProofState } from './rpc_api';
 import { PreferencesState } from '../../state/preferences';
+import { Icons } from '../../icons/icons';
 
 export const MonacoEditorContext = React.createContext<monaco.editor.IStandaloneCodeEditor>(
   null as any)
@@ -123,7 +124,7 @@ export const DeletedChatContext = React.createContext<{
   setShowHelp: () => {}
 })
 
-export type UIMode = 'typewriter' | 'dragDrop' | 'codeEditor'
+export type UIMode = 'typewriter' | 'codeEditor' // | 'dragDrop'
 
 export const InputModeContext = React.createContext<{
   uiMode: UIMode,
@@ -132,6 +133,7 @@ export const InputModeContext = React.createContext<{
   setTypewriterInput: React.Dispatch<React.SetStateAction<string>>,
   lockUIMode: boolean,
   setLockUIMode: React.Dispatch<React.SetStateAction<boolean>>,
+  uiModeCases: Record<UIMode, { icon: any, labelText: string }>,
 }>({
   uiMode: 'typewriter',
   setUIMode: () => {},
@@ -139,4 +141,18 @@ export const InputModeContext = React.createContext<{
   setTypewriterInput: () => {},
   lockUIMode: false,
   setLockUIMode: () => {},
+  uiModeCases: {
+    codeEditor: {
+      icon: Icons.codeEditor,
+      labelText: "Code Editor mode"
+    },
+    typewriter: {
+      icon: Icons.typewriter,
+      labelText: "Typewriter mode"
+    },
+    // dragDrop: {
+    //   icon: Icons.dragDrop,
+    //   labelText: "Drag & Drop mode"
+    // }
+  }
 });

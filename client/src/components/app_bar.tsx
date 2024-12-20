@@ -3,11 +3,9 @@
  */
 import * as React from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faDownload, faUpload, faEraser, faBook, faBookOpen, faGlobe, faHome,
-  faArrowRight, faArrowLeft, faXmark, faBars, faCode,
-  faCircleInfo, faTerminal, faGear } from '@fortawesome/free-solid-svg-icons'
+import { Icons } from '../icons/icons'
 import { GameIdContext } from "../app"
-import { InputModeContext, PreferencesContext, WorldLevelIdContext } from "./infoview/context"
+import { InputModeContext, PreferencesContext, UIMode, WorldLevelIdContext } from "./infoview/context"
 import { GameInfo, useGetGameInfoQuery } from '../state/api'
 import { changedOpenedIntro, selectCompleted, selectDifficulty, selectProgress } from '../state/progress'
 import { useAppDispatch, useAppSelector } from '../hooks'
@@ -25,11 +23,11 @@ function MobileNavButtons({pageNumber, setPageNumber}:
 
   // if `prevText` or `prevIcon` is set, show a button to go back
   let prevText  = {0: null, 1: t("Intro"), 2: null}[pageNumber]
-  let prevIcon  = {0: null, 1: null, 2: faBookOpen}[pageNumber]
+  let prevIcon  = {0: null, 1: null, 2: Icons.bookOpen}[pageNumber]
   let prevTitle = {0: null, 1: t("Game Introduction"), 2: t("World selection")}[pageNumber]
   // if `nextText` or `nextIcon` is set, show a button to go forward
   let nextText  = {0: t("Start"), 1: null, 2: null}[pageNumber]
-  let nextIcon  = {0: null, 1: faBook, 2: null}[pageNumber]
+  let nextIcon  = {0: null, 1: Icons.book, 2: null}[pageNumber]
   let nextTitle = {0: t("World selection"), 1: t("Inventory"), 2: null}[pageNumber]
 
   return <>
@@ -57,7 +55,7 @@ function MobileNavButtons({pageNumber, setPageNumber}:
 /** button to toggle dropdown menu. */
 export function MenuButton({navOpen, setNavOpen}) {
   return <Button to="" className="btn toggle-width" id="menu-btn" onClick={(ev) => {setNavOpen(!navOpen)}}>
-    {navOpen ? <FontAwesomeIcon icon={faXmark} /> : <FontAwesomeIcon icon={faBars} />}
+    {navOpen ? <FontAwesomeIcon icon={Icons.xmark} /> : <FontAwesomeIcon icon={Icons.bars} />}
   </Button>
 }
 
@@ -73,11 +71,11 @@ function NextButton({worldSize, difficulty, completed, setNavOpen}) {
         to={`/${gameId}/world/${worldId}/level/${levelId + 1}`} title={t("next level")}
         disabled={difficulty >= 2 && !(completed || levelId == 0)}
         onClick={() => setNavOpen(false)}>
-      <FontAwesomeIcon icon={faArrowRight} />&nbsp;{levelId ? t("Next") : t("Start")}
+      <FontAwesomeIcon icon={Icons.arrowRight} />&nbsp;{levelId ? t("Next") : t("Start")}
     </Button>
     :
     <Button to={`/${gameId}`} inverted="true" title={t("back to world selection")} id="home-btn">
-      <FontAwesomeIcon icon={faHome} />&nbsp;{t("Leave World")}
+      <FontAwesomeIcon icon={Icons.home} />&nbsp;{t("Leave World")}
     </Button>
   )
 }
@@ -94,7 +92,7 @@ function PreviousButton({setNavOpen}) {
         to={`/${gameId}/world/${worldId}/level/${levelId - 1}`}
         title={t("previous level")}
         onClick={() => setNavOpen(false)}>
-      <FontAwesomeIcon icon={faArrowLeft} />&nbsp;{t("Previous")}
+      <FontAwesomeIcon icon={Icons.arrowLeft} />&nbsp;{t("Previous")}
     </Button>
   </>)
 }
@@ -103,23 +101,29 @@ function PreviousButton({setNavOpen}) {
 function InputModeButton({setNavOpen, isDropdown}) {
   const { t } = useTranslation()
   const {levelId} = React.useContext(WorldLevelIdContext)
-  const {uiMode, setUIMode, lockUIMode} = React.useContext(InputModeContext)
+  const {uiMode, setUIMode, lockUIMode, uiModeCases} = React.useContext(InputModeContext)
 
   /** toggle input mode if allowed */
   function toggleInputMode(ev: React.MouseEvent) {
-    if (!lockUIMode){
-      setUIMode(uiMode === 'typewriter' ? 'codeEditor' : 'typewriter')
-      setNavOpen(false)
+    if (!lockUIMode) {
+      const modes = Object.keys(uiModeCases) as UIMode[];
+      const currentIndex = modes.indexOf(uiMode);
+      const nextIndex = (currentIndex + 1) % modes.length;
+      setUIMode(modes[nextIndex]);
+      setNavOpen(false);
     }
   }
+
+  // Determine the current mode's properties
+  const currentMode = lockUIMode ? null : uiModeCases[uiMode]
 
   return <Button
       className={`btn btn-inverted ${isDropdown? '' : 'toggle-width'}`} disabled={levelId <= 0 || lockUIMode}
       inverted="true" to=""
       onClick={(ev) => toggleInputMode(ev)}
-      title={lockUIMode ? t("Editor mode is enforced!") : uiMode === 'codeEditor' ? t("Code Editor mode") : t("Typewriter mode")}>
-    <FontAwesomeIcon icon={(uiMode === 'codeEditor' && !lockUIMode) ? faCode : faTerminal} />
-    {isDropdown && ((uiMode === 'codeEditor' && !lockUIMode) ? <>&nbsp;{t("Code Editor mode")}</> : <>&nbsp;{t("Typewriter mode")}</>)}
+      title={lockUIMode ? t("Editor mode is enforced!") : t(currentMode?.labelText)}>
+    <FontAwesomeIcon icon={lockUIMode ? Icons.typewriter : currentMode?.icon} />
+    {isDropdown && <>&nbsp;{lockUIMode ? t("Editor mode is enforced!") : t(currentMode?.labelText)}</>}
   </Button>
 }
 
@@ -131,7 +135,7 @@ export function ImpressumButton({setNavOpen, toggleImpressum, isDropdown}) {
   const { t } = useTranslation()
   return <Button className="btn btn-inverted"
     title={t("information, Impressum, privacy policy")} inverted="true" to="" onClick={(ev) => {toggleImpressum(ev); setNavOpen(false)}}>
-    <FontAwesomeIcon icon={faCircleInfo} />
+    <FontAwesomeIcon icon={Icons.circleInfo} />
     {isDropdown && <>&nbsp;Impressum</>}
   </Button>
 }
@@ -139,7 +143,7 @@ export function ImpressumButton({setNavOpen, toggleImpressum, isDropdown}) {
 export function PreferencesButton({setNavOpen, togglePreferencesPopup}) {
   const { t } = useTranslation()
   return <Button title={t("Preferences")} inverted="true" to="" onClick={() => {togglePreferencesPopup(); setNavOpen(false)}}>
-    <FontAwesomeIcon icon={faGear} />&nbsp;{t("Preferences")}
+    <FontAwesomeIcon icon={Icons.gear} />&nbsp;{t("Preferences")}
   </Button>
 }
 
@@ -147,28 +151,28 @@ function GameInfoButton({setNavOpen, toggleInfo}) {
   const { t } = useTranslation()
   return <Button className="btn btn-inverted"
     title={t("Game Info & Credits")} inverted="true" to="" onClick={() => {toggleInfo(); setNavOpen(false)}}>
-    <FontAwesomeIcon icon={faCircleInfo} />&nbsp;{t("Game Info")}
+    <FontAwesomeIcon icon={Icons.circleInfo} />&nbsp;{t("Game Info")}
   </Button>
 }
 
 function EraseButton ({setNavOpen, toggleEraseMenu}) {
   const { t } = useTranslation()
   return <Button title={t("Clear Progress")} inverted="true" to="" onClick={() => {toggleEraseMenu(); setNavOpen(false)}}>
-    <FontAwesomeIcon icon={faEraser} />&nbsp;{t("Erase")}
+    <FontAwesomeIcon icon={Icons.eraser} />&nbsp;{t("Erase")}
   </Button>
 }
 
 function DownloadButton ({setNavOpen, gameId, gameProgress}) {
   const { t } = useTranslation()
   return <Button title={t("Download Progress")} inverted="true" to="" onClick={(ev) => {downloadProgress(gameId, gameProgress, ev); setNavOpen(false)}}>
-    <FontAwesomeIcon icon={faDownload} />&nbsp;{t("Download")}
+    <FontAwesomeIcon icon={Icons.download} />&nbsp;{t("Download")}
   </Button>
 }
 
 function UploadButton ({setNavOpen, toggleUploadMenu}) {
   const { t } = useTranslation()
   return <Button title={t("Load Progress from JSON")} inverted="true" to="" onClick={() => {toggleUploadMenu(); setNavOpen(false)}}>
-    <FontAwesomeIcon icon={faUpload} />&nbsp;{t("Upload")}
+    <FontAwesomeIcon icon={Icons.upload} />&nbsp;{t("Upload")}
   </Button>
 }
 
@@ -177,7 +181,7 @@ function HomeButton({isDropdown}) {
   const { t } = useTranslation()
   const gameId = React.useContext(GameIdContext)
   return <Button to={`/${gameId}`} inverted="true" title={t("back to world selection")} id="home-btn">
-    <FontAwesomeIcon icon={faHome} />
+    <FontAwesomeIcon icon={Icons.home} />
     {isDropdown && <>&nbsp;{t("Home")}</>}
   </Button>
 }
@@ -185,7 +189,7 @@ function HomeButton({isDropdown}) {
 function LandingPageButton() {
   const { t } = useTranslation()
   return <Button inverted="false" title={t("back to games selection")} to="/">
-    <FontAwesomeIcon icon={faArrowLeft} />&nbsp;<FontAwesomeIcon icon={faGlobe} />
+    <FontAwesomeIcon icon={Icons.arrowLeft} />&nbsp;<FontAwesomeIcon icon={Icons.globe} />
     </Button>
 }
 
@@ -198,7 +202,7 @@ function InventoryButton({pageNumber, setPageNumber}) {
     <Button to="" className="btn btn-inverted toggle-width"
       title={pageNumber ? t("close inventory") : t("show inventory")}
       inverted="true" onClick={() => {setPageNumber(pageNumber ? 0 : 1)}}>
-      <FontAwesomeIcon icon={pageNumber ? faBookOpen : faBook} />
+      <FontAwesomeIcon icon={pageNumber ? Icons.bookOpen : Icons.book} />
     </Button>
   )
 }
