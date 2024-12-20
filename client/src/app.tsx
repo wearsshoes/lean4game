@@ -11,6 +11,7 @@ import './css/app.css';
 import { PreferencesContext} from './components/infoview/context';
 import UsePreferences from "./state/hooks/use_preferences"
 import i18n from './i18n';
+import { ProofStateProvider } from './components/proof_state';
 
 export const GameIdContext = React.createContext<string>(undefined);
 
@@ -28,11 +29,13 @@ function App() {
   return (
     <div className="app">
       <GameIdContext.Provider value={gameId}>
+        <ProofStateProvider>
           <PreferencesContext.Provider value={{mobile, layout, isSavePreferences, language, setLayout, setIsSavePreferences, setLanguage}}>
             <React.Suspense>
               <Outlet />
             </React.Suspense>
-          </PreferencesContext.Provider>
+            </PreferencesContext.Provider>
+        </ProofStateProvider>
       </GameIdContext.Provider>
     </div>
   )

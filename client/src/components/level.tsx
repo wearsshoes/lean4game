@@ -28,8 +28,8 @@ import { Button } from './button'
 import Markdown from './markdown'
 import {InventoryPanel} from './inventory'
 import { hasInteractiveErrors } from './infoview/typewriter'
-import { DeletedChatContext, InputModeContext, PreferencesContext, MonacoEditorContext,
-  ProofContext, SelectionContext, WorldLevelIdContext } from './infoview/context'
+import { DeletedChatContext, InputModeContext, PreferencesContext, MonacoEditorContext, SelectionContext, WorldLevelIdContext } from './infoview/context'
+
 import { DualEditor } from './infoview/main'
 import { GameHint, InteractiveGoalsWithHints, ProofState } from './infoview/rpc_api'
 import { DeletedHints, Hint, Hints, MoreHelpButton, filterHints } from './hints'
@@ -55,6 +55,8 @@ import { InfoPopup } from './popup/game_info'
 import { PreferencesPopup } from './popup/preferences'
 import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
+
+import { ProofStateContext, ProofStateProvider } from './proof_state'
 
 import { UIMode } from './infoview/context'
 import { Icons } from '../icons/icons'
@@ -104,7 +106,7 @@ function ChatPanel({lastLevel, visible = true}) {
   const gameId = useContext(GameIdContext)
   const {worldId, levelId} = useContext(WorldLevelIdContext)
   const level = useLoadLevelQuery({game: gameId, world: worldId, level: levelId})
-  const {proof, setProof} = useContext(ProofContext)
+  const { proof } = useContext(ProofStateContext)
   const {deletedChat, setDeletedChat, showHelp, setShowHelp} = useContext(DeletedChatContext)
   const {selectedStep, setSelectedStep} = useContext(SelectionContext)
   const completed = useAppSelector(selectCompleted(gameId, worldId, levelId))
@@ -220,6 +222,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
   const gameId = React.useContext(GameIdContext)
   const {worldId, levelId} = useContext(WorldLevelIdContext)
   const {mobile} = React.useContext(PreferencesContext)
+  const { proof } = useContext(ProofStateContext)
 
   const dispatch = useAppDispatch()
 
@@ -231,12 +234,6 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
 
   const gameInfo = useGetGameInfoQuery({game: gameId})
   const level = useLoadLevelQuery({game: gameId, world: worldId, level: levelId})
-
-  // The state variables for the `ProofContext`
-  const [proof, setProof] = useState<ProofState>({steps: [], diagnostics: [], completed: false, completedWithWarnings: false})
-  const [interimDiags, setInterimDiags] = useState<Array<Diagnostic>>([])
-  const [isCrashed, setIsCrashed] = useState<Boolean>(false)
-
 
   // When deleting the proof, we want to keep to old messages around until
   // a new proof has been entered. e.g. to consult messages coming from dead ends
@@ -260,8 +257,6 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
   // Set `inventoryDoc` to `null` to close the doc
   const [inventoryDoc, setInventoryDoc] = useState<{name: string, type: string}>(null)
   function closeInventoryDoc () {setInventoryDoc(null)}
-
-
 
   const onDidChangeContent = (code) => {
     dispatch(codeEdited({game: gameId, world: worldId, level: levelId, code}))
@@ -414,7 +409,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
     <DeletedChatContext.Provider value={{deletedChat, setDeletedChat, showHelp, setShowHelp}}>
       <SelectionContext.Provider value={{selectedStep, setSelectedStep}}>
         <InputModeContext.Provider value={{uiMode, setUIMode, typewriterInput, setTypewriterInput, lockUIMode, setLockUIMode, uiModeCases}}>
-          <ProofContext.Provider value={{proof, setProof, interimDiags, setInterimDiags, crashed: isCrashed, setCrashed: setIsCrashed}}>
+          <ProofStateProvider>
             <EditorContext.Provider value={editorConnection}>
               <MonacoEditorContext.Provider value={editor}>
                 <LevelAppBar
@@ -446,7 +441,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
                 }
               </MonacoEditorContext.Provider>
             </EditorContext.Provider>
-          </ProofContext.Provider>
+          </ProofStateProvider>
         </InputModeContext.Provider>
       </SelectionContext.Provider>
     </DeletedChatContext.Provider>
