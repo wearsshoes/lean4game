@@ -123,16 +123,18 @@ export const DeletedChatContext = React.createContext<{
   setShowHelp: () => {}
 })
 
+export type inputModeType = 'typewriter' | 'dragDrop' | 'editor'
+
 export const InputModeContext = React.createContext<{
-  typewriterMode: boolean,
-  setTypewriterMode: React.Dispatch<React.SetStateAction<boolean>>,
+  inputMode: inputModeType,
+  setInputMode: React.Dispatch<React.SetStateAction<inputModeType>>,
   typewriterInput: string,
   setTypewriterInput: React.Dispatch<React.SetStateAction<string>>,
   lockEditorMode: boolean,
   setLockEditorMode: React.Dispatch<React.SetStateAction<boolean>>,
 }>({
-  typewriterMode: true,
-  setTypewriterMode: () => {},
+  inputMode: 'typewriter',
+  setInputMode: () => {},
   typewriterInput: "",
   setTypewriterInput: () => {},
   lockEditorMode: false,

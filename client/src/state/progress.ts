@@ -5,6 +5,7 @@ import { createSlice } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { loadState } from "./local_storage";
 import { WorkDoneProgressBegin } from 'vscode-languageserver-protocol';
+import { inputModeType } from '../components/infoview/context';
 
 interface Selection {
   selectionStartLineNumber: number,
@@ -27,7 +28,7 @@ export interface GameProgressState {
   difficulty: number,
   openedIntro: boolean,
   data: WorldProgressState,
-  typewriterMode?: boolean
+  inputMode?: inputModeType
 }
 
 /**
@@ -128,9 +129,9 @@ export const progressSlice = createSlice({
       state.games[action.payload.game.toLowerCase()].openedIntro = action.payload.openedIntro
     },
     /** set the typewriter mode */
-    changeTypewriterMode(state: ProgressState, action: PayloadAction<{game: string, typewriterMode: boolean}>) {
-      addGameProgress(state, action)
-      state.games[action.payload.game.toLowerCase()].typewriterMode = action.payload.typewriterMode
+    changeInputMode(state: ProgressState, action: PayloadAction<{game: string, inputMode: inputModeType}>) {
+    addGameProgress(state, action)
+      state.games[action.payload.game.toLowerCase()].inputMode = action.payload.inputMode
     }
   }
 })
@@ -203,13 +204,22 @@ export function selectOpenedIntro(game: string) {
 }
 
 /** return typewriter mode for the current game if it exists */
-export function selectTypewriterMode(game: string) {
+export function selectInputMode(game: string) {
   return (state) => {
-    return state.progress.games[game.toLowerCase()]?.typewriterMode ?? true
+    const gameState = state.progress.games[game.toLowerCase()]
+    if (!gameState) return 'editor'
+
+    // Handle new format
+    if (gameState.inputMode !== undefined) {
+      return gameState.inputMode
+    }
+
+    // Handle legacy format
+    return gameState.typewriterMode === true ? 'typewriter' : 'editor'
   }
 }
 
 /** Export actions to modify the progress */
 export const { changedSelection, codeEdited, levelCompleted, deleteProgress,
   deleteLevelProgress, loadProgress, helpEdited, changedInventory, changedOpenedIntro,
-  changedDifficulty, changeTypewriterMode} = progressSlice.actions
+  changedDifficulty, changeInputMode: changeInputMode} = progressSlice.actions

@@ -5,7 +5,7 @@ import * as React from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDownload, faUpload, faEraser, faBook, faBookOpen, faGlobe, faHome,
   faArrowRight, faArrowLeft, faXmark, faBars, faCode,
-  faCircleInfo, faTerminal, faGear } from '@fortawesome/free-solid-svg-icons'
+  faCircleInfo, faTerminal, faGear, faHandPointer } from '@fortawesome/free-solid-svg-icons'
 import { GameIdContext } from "../app"
 import { InputModeContext, PreferencesContext, WorldLevelIdContext } from "./infoview/context"
 import { GameInfo, useGetGameInfoQuery } from '../state/api'
@@ -103,13 +103,14 @@ function PreviousButton({setNavOpen}) {
 function InputModeButton({setNavOpen, isDropdown}) {
   const { t } = useTranslation()
   const {levelId} = React.useContext(WorldLevelIdContext)
-  const {typewriterMode, setTypewriterMode, lockEditorMode} = React.useContext(InputModeContext)
+  const {inputMode, setInputMode: setInputMode, lockEditorMode} = React.useContext(InputModeContext)
 
   /** toggle input mode if allowed */
   function toggleInputMode(ev: React.MouseEvent) {
     if (!lockEditorMode){
-      setTypewriterMode(!typewriterMode)
-      setNavOpen(false)
+      const nextInputMode = inputMode === 'editor' ? 'typewriter' : inputMode === 'typewriter' ? 'dragDrop' : 'editor';
+      setInputMode(nextInputMode);
+      setNavOpen(false);
     }
   }
 
@@ -117,9 +118,9 @@ function InputModeButton({setNavOpen, isDropdown}) {
       className={`btn btn-inverted ${isDropdown? '' : 'toggle-width'}`} disabled={levelId <= 0 || lockEditorMode}
       inverted="true" to=""
       onClick={(ev) => toggleInputMode(ev)}
-      title={lockEditorMode ? t("Editor mode is enforced!") : typewriterMode ? t("Editor mode") : t("Typewriter mode")}>
-    <FontAwesomeIcon icon={(typewriterMode && !lockEditorMode) ? faCode : faTerminal} />
-    {isDropdown && ((typewriterMode && !lockEditorMode) ? <>&nbsp;{t("Editor mode")}</> : <>&nbsp;{t("Typewriter mode")}</>)}
+      title={lockEditorMode ? t("Editor mode is enforced!") : (inputMode === 'editor' ? t("Editor mode") : (inputMode === 'typewriter' ? t("Typewriter mode") : t("Drag and Drop mode")))}>
+    <FontAwesomeIcon icon={inputMode === 'dragDrop' ? faHandPointer : (inputMode === 'editor' && !lockEditorMode ? faCode : faTerminal)} />
+    {isDropdown && ((inputMode === 'editor' && !lockEditorMode) ? <>&nbsp;{t("Editor mode")}</> : (inputMode === 'typewriter' ? <>&nbsp;{t("Typewriter mode")}</> : <>&nbsp;{t("Drag and Drop mode")}</>))}
   </Button>
 }
 

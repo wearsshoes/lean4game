@@ -22,19 +22,22 @@ import { GameIdContext } from '../app'
 import { useAppDispatch, useAppSelector } from '../hooks'
 import { useGetGameInfoQuery, useLoadInventoryOverviewQuery, useLoadLevelQuery } from '../state/api'
 import { changedSelection, codeEdited, selectCode, selectSelections, selectCompleted, helpEdited,
-  selectHelp, selectDifficulty, selectInventory, selectTypewriterMode, changeTypewriterMode } from '../state/progress'
+  selectHelp, selectDifficulty, selectInventory, selectInputMode, changeInputMode } from '../state/progress'
 import { store } from '../state/store'
 import { Button } from './button'
 import Markdown from './markdown'
 import {InventoryPanel} from './inventory'
+import {DragDropInventoryPanel} from './drag_drop_inventory'
 import { hasInteractiveErrors } from './infoview/typewriter'
 import { DeletedChatContext, InputModeContext, PreferencesContext, MonacoEditorContext,
   ProofContext, SelectionContext, WorldLevelIdContext } from './infoview/context'
-import { DualEditor } from './infoview/main'
+import { PolyEditor } from './infoview/main'
 import { GameHint, InteractiveGoalsWithHints, ProofState } from './infoview/rpc_api'
 import { DeletedHints, Hint, Hints, MoreHelpButton, filterHints } from './hints'
 import { PrivacyPolicyPopup } from './popup/privacy_policy'
 import path from 'path';
+
+import { inputModeType } from './infoview/context';
 
 import '@fontsource/roboto/300.css'
 import '@fontsource/roboto/400.css'
@@ -207,7 +210,7 @@ function ExercisePanel({codeviewRef, visible=true}: {codeviewRef: React.MutableR
   const gameInfo = useGetGameInfoQuery({game: gameId})
   return <div className={`exercise-panel ${visible ? '' : 'hidden'}`}>
     <div className="exercise">
-      <DualEditor level={level?.data} codeviewRef={codeviewRef} levelId={levelId} worldId={worldId} worldSize={gameInfo.data?.worldSize[worldId]}/>
+      <PolyEditor level={level?.data} codeviewRef={codeviewRef} levelId={levelId} worldId={worldId} worldSize={gameInfo.data?.worldSize[worldId]}/>
     </div>
   </div>
 }
@@ -224,8 +227,8 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
   const initialCode = useAppSelector(selectCode(gameId, worldId, levelId))
   const initialSelections = useAppSelector(selectSelections(gameId, worldId, levelId))
 
-  const typewriterMode = useSelector(selectTypewriterMode(gameId))
-  const setTypewriterMode = (newTypewriterMode: boolean) => dispatch(changeTypewriterMode({game: gameId, typewriterMode: newTypewriterMode}))
+  const inputMode = useSelector(selectInputMode(gameId))
+  const setInputMode = (newInputMode: inputModeType) => dispatch(changeInputMode({game: gameId, inputMode: newInputMode}))
 
   const gameInfo = useGetGameInfoQuery({game: gameId})
   const level = useLoadLevelQuery({game: gameId, world: worldId, level: levelId})
@@ -352,7 +355,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
   }, [gameId, worldId, levelId])
 
   useEffect(() => {
-    if (!(typewriterMode && !lockEditorMode) && editor) {
+    if (!(inputMode && !lockEditorMode) && editor) {
       // Delete last input attempt from command line
       editor.executeEdits("typewriter", [{
         range: editor.getSelection(),
@@ -361,7 +364,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
       }]);
       editor.focus()
     }
-  }, [typewriterMode, lockEditorMode])
+  }, [inputMode, lockEditorMode])
 
   useEffect(() => {
     // Forget whether hidden hints are displayed for steps that don't exist yet
@@ -381,7 +384,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
 
   // Effect when command line mode gets enabled
   useEffect(() => {
-    if (onigasmH && editor && (typewriterMode && !lockEditorMode)) {
+    if (onigasmH && editor && (inputMode && !lockEditorMode)) {
       let code = editor.getModel().getLinesContent().filter(line => line.trim())
       editor.executeEdits("typewriter", [{
         range: editor.getModel().getFullModelRange(),
@@ -404,13 +407,13 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
       //   editor.setSelection(monaco.Selection.fromPositions(endPos, endPos))
       // }
     }
-  }, [editor, typewriterMode, lockEditorMode, onigasmH == null])
+  }, [editor, inputMode, lockEditorMode, onigasmH == null])
 
   return <>
     <div style={level.isLoading ? null : {display: "none"}} className="app-content loading"><CircularProgress /></div>
     <DeletedChatContext.Provider value={{deletedChat, setDeletedChat, showHelp, setShowHelp}}>
       <SelectionContext.Provider value={{selectedStep, setSelectedStep}}>
-        <InputModeContext.Provider value={{typewriterMode, setTypewriterMode, typewriterInput, setTypewriterInput, lockEditorMode, setLockEditorMode}}>
+        <InputModeContext.Provider value={{inputMode, setInputMode, typewriterInput, setTypewriterInput, lockEditorMode, setLockEditorMode}}>
           <ProofContext.Provider value={{proof, setProof, interimDiags, setInterimDiags, crashed: isCrashed, setCrashed: setIsCrashed}}>
             <EditorContext.Provider value={editorConnection}>
               <MonacoEditorContext.Provider value={editor}>
@@ -493,6 +496,8 @@ function Introduction({impressum, setImpressum, toggleInfo, togglePreferencesPop
 
   let image: string = gameInfo.data?.worlds.nodes[worldId].image
 
+  const {inputMode} = React.useContext(InputModeContext)
+
 
   const toggleImpressum = () => {
     setImpressum(!impressum)
@@ -513,7 +518,11 @@ function Introduction({impressum, setImpressum, toggleInfo, togglePreferencesPop
             }
 
           </div>
-          <InventoryPanel levelInfo={inventory?.data} />
+          { inputMode === 'dragDrop' ?
+            <DragDropInventoryPanel levelInfo={inventory?.data } />
+            :
+            <InventoryPanel levelInfo={inventory?.data} />
+          }
         </Split>
       }
 

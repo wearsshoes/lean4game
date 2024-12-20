@@ -39,21 +39,24 @@ import { DocumentPosition } from '../../../../node_modules/lean4-infoview/src/in
 import { DiagnosticSeverity } from 'vscode-languageclient';
 import { useTranslation } from 'react-i18next';
 import path from 'path';
+import { DragDropInterfaceWrapper } from './drag_drop';
+
+import { inputModeType } from './context';
 
 
 /** Wrapper for the two editors. It is important that the `div` with `codeViewRef` is
  * always present, or the monaco editor cannot start.
  */
-export function DualEditor({ level, codeviewRef, levelId, worldId, worldSize }) {
+export function PolyEditor({ level, codeviewRef, levelId, worldId, worldSize }) {
   const ec = React.useContext(EditorContext)
-  const { typewriterMode, lockEditorMode } = React.useContext(InputModeContext)
+  const { inputMode, lockEditorMode } = React.useContext(InputModeContext)
   return <>
-    <div className={(typewriterMode && !lockEditorMode) ? 'hidden' : ''}>
+    <div className={(inputMode === 'typewriter' && !lockEditorMode) ? '' : 'hidden'}>
       <ExerciseStatement data={level} showLeanStatement={true} />
       <div ref={codeviewRef} className={'codeview'}></div>
     </div>
     {ec ?
-      <DualEditorMain worldId={worldId} levelId={levelId} level={level} worldSize={worldSize} /> :
+      <PolyEditorMain worldId={worldId} levelId={levelId} level={level} worldSize={worldSize} /> :
       // TODO: Style this if relevant.
       <></>
     }
@@ -61,10 +64,10 @@ export function DualEditor({ level, codeviewRef, levelId, worldId, worldSize }) 
 }
 
 /** The part of the two editors that needs the editor connection first */
-function DualEditorMain({ worldId, levelId, level, worldSize }: { worldId: string, levelId: number, level: LevelInfo, worldSize: number }) {
+function PolyEditorMain({ worldId, levelId, level, worldSize }: { worldId: string, levelId: number, level: LevelInfo, worldSize: number }) {
   const ec = React.useContext(EditorContext)
   const gameId = React.useContext(GameIdContext)
-  const { typewriterMode, lockEditorMode } = React.useContext(InputModeContext)
+  const { inputMode, lockEditorMode } = React.useContext(InputModeContext)
 
   const {proof, setProof} = React.useContext(ProofContext)
 
@@ -114,17 +117,51 @@ function DualEditorMain({ worldId, levelId, level, worldSize }: { worldId: strin
         <WithRpcSessions>
           <WithLspDiagnosticsContext>
             <ProgressContext.Provider value={allProgress}>
-              {(typewriterMode && !lockEditorMode) ?
-                <TypewriterInterfaceWrapper world={worldId} level={levelId} data={level} worldSize={worldSize}/>
-                :
-                <Main key={`${worldId}/${levelId}`} world={worldId} level={levelId} data={level} />
-              }
+              {getInterface(inputMode, {
+                worldId,
+                levelId,
+                level,
+                worldSize,
+                lockEditorMode
+              })}
             </ProgressContext.Provider>
           </WithLspDiagnosticsContext>
         </WithRpcSessions>
       </VersionContext.Provider>
     </ConfigContext.Provider>
   </>
+}
+
+function getInterface(mode: inputModeType, props: {
+  worldId: string,
+  levelId: number,
+  level: LevelInfo,
+  worldSize: number,
+  lockEditorMode: boolean
+}) {
+  if (mode === 'typewriter' && !props.lockEditorMode) {
+    return <TypewriterInterfaceWrapper
+      world={props.worldId}
+      level={props.levelId}
+      data={props.level}
+      worldSize={props.worldSize}
+    />;
+  }
+  if (mode === 'dragDrop' && !props.lockEditorMode) {
+    // TODO: Implement DragDropInterface
+    return <DragDropInterfaceWrapper
+      world={props.worldId}
+      level={props.levelId}
+      data={props.level}
+      worldSize={props.worldSize}
+    />;
+  }
+  return <Main
+    key={`${props.worldId}/${props.levelId}`}
+    world={props.worldId}
+    level={props.levelId}
+    data={props.level}
+  />;
 }
 
 /** The mathematical formulation of the statement, supporting e.g. Latex
@@ -311,7 +348,7 @@ function Command({ proof, i, deleteProof }: { proof: ProofState, i: number, dele
 //       message = diag.message
 //   }
 
-//   const { typewriterMode } = React.useContext(InputModeContext)
+//   const { inputMode } = React.useContext(InputModeContext)
 
 //   return (
 //   // <details open>
@@ -330,7 +367,7 @@ function Command({ proof, i, deleteProof }: { proof: ProofState, i: number, dele
 //       //     </span>
 //       // </summary>
 //       <div className={severityClass + ' ml1 message'}>
-//           {!typewriterMode && <p className="mv2">{title}</p>}
+//           {!inputMode && <p className="mv2">{title}</p>}
 //           <pre className="font-code pre-wrap">
 //               <InteractiveMessage fmt={message} />
 //           </pre>
@@ -553,12 +590,12 @@ export function TypewriterInterface({props}) {
               //   // entered command as it is still present in the command line.
               //   // TODO: Should not use index as key.
               //   return <div key={`proof-step-${i}`} className={`step step-${i}`}>
-              //     <Errors errors={step.diags} typewriterMode={true} />
+              //     <Errors errors={step.diags} inputMode={true} />
               //   </div>
               // } else {
                 return <div key={`proof-step-${i}`} className={`step step-${i}` + (selectedStep == i ? ' selected' : '')}>
                   <Command proof={proof} i={i} deleteProof={deleteProof(i)} />
-                  <Errors errors={step.diags} typewriterMode={true} />
+                  <Errors errors={step.diags} inputMode={true} />
                   {mobile && i == 0 && props.data?.introduction &&
                     <div className={`message information step-0${selectedStep === 0 ? ' selected' : ''}`} onClick={toggleSelectStep(0)}>
                       <Markdown>{props.data?.introduction}</Markdown>
@@ -595,7 +632,7 @@ export function TypewriterInterface({props}) {
             )}
             {proof?.diagnostics.length > 0 &&
               <div key={`proof-step-remaining`} className="step step-remaining">
-                <Errors errors={proof?.diagnostics} typewriterMode={true} />
+                <Errors errors={proof?.diagnostics} inputMode={true} />
               </div>
             }
             {mobile && proof?.completed &&
