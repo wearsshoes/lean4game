@@ -156,15 +156,15 @@ export function DragDropInventoryPanel({levelInfo, visible = true}) {
   // Set `inventoryDoc` to `null` to close the doc
   function closeInventoryDoc() {setInventoryDoc(null)}
 
-    useEffect(() => {
-    // If the level specifies `LemmaTab "Nat"`, we switch to this tab on loading.
-    // `defaultTab` is `null` or `undefined` otherwise, in which case we don't want to switch.
-    if (levelInfo?.lemmaTab) {
-      setLemmaTab(levelInfo?.lemmaTab)
-    }}, [levelInfo])
+    // useEffect(() => {
+    // // If the level specifies `LemmaTab "Nat"`, we switch to this tab on loading.
+    // // `defaultTab` is `null` or `undefined` otherwise, in which case we don't want to switch.
+    // if (levelInfo?.lemmaTab) {
+    //   setLemmaTab(levelInfo?.lemmaTab)
+    // }}, [levelInfo])
 
   return <div className={`column inventory-panel ${visible ? '' : 'hidden'}`}>
-    DragDropInventoryPanel
+    <div className='inventory'>DragDropInventoryPanel</div>
     {/* {inventoryDoc ?
       <Documentation name={inventoryDoc.name} type={inventoryDoc.type} handleClose={closeInventoryDoc}/>
       :

@@ -437,11 +437,14 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
                     </div>
                   </>
                 :
-                  <Split minSize={0} snapOffset={200} sizes={[25, 50, 25]} className={`app-content level ${level.isLoading ? 'hidden' : ''}`}>
+                  <Split key={`split-${inputMode}`} minSize={0} snapOffset={200} sizes={[25, 50, 25]} className={`app-content level ${level.isLoading ? 'hidden' : ''}`}>
                     <ChatPanel lastLevel={lastLevel}/>
                     <ExercisePanel
                       codeviewRef={codeviewRef} />
-                    <InventoryPanel levelInfo={level?.data} />
+                    {inputMode === 'dragDrop' ?
+                      <DragDropInventoryPanel levelInfo={level?.data} /> :
+                      <InventoryPanel levelInfo={level?.data} />
+                    }
                   </Split>
                 }
               </MonacoEditorContext.Provider>
@@ -510,7 +513,7 @@ function Introduction({impressum, setImpressum, toggleInfo, togglePreferencesPop
     : mobile ?
         <IntroductionPanel gameInfo={gameInfo} />
       :
-        <Split minSize={0} snapOffset={200} sizes={[25, 50, 25]} className={`app-content level`}>
+        <Split key={`split-${inputMode}`} minSize={0} snapOffset={200} sizes={[25, 50, 25]} className={`app-content level`}>
           <IntroductionPanel gameInfo={gameInfo} />
           <div className="world-image-container empty center">
             {image &&
@@ -519,8 +522,7 @@ function Introduction({impressum, setImpressum, toggleInfo, togglePreferencesPop
 
           </div>
           { inputMode === 'dragDrop' ?
-            <DragDropInventoryPanel levelInfo={inventory?.data } />
-            :
+            <DragDropInventoryPanel levelInfo={inventory?.data} /> :
             <InventoryPanel levelInfo={inventory?.data} />
           }
         </Split>
