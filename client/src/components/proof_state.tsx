@@ -2,6 +2,8 @@ import { InteractiveGoals, InteractiveTermGoal, ProofState } from "./infoview/rp
 import { Diagnostic } from 'vscode-languageserver-types'
 import { RpcSessionAtPos } from '@leanprover/infoview-api'
 import { RpcService } from './infoview/rpc_service'
+import { InfoStatus } from "./infoview/context"
+import { InteractiveDiagnostic } from "@leanprover/infoview/*"
 
 import * as React from 'react'
 import { DocumentPosition, MsgEmbed, TaggedText } from "@leanprover/infoview/dist/infoview/util"
@@ -16,9 +18,19 @@ export interface ProofStateManager {
   rpcSess?: RpcSessionAtPos
   uri?: string
   rpcService?: RpcService
+  status: InfoStatus
+  messages: InteractiveDiagnostic[]
+  error?: string
+  termGoal?: InteractiveTermGoal
+  userWidgets: UserWidgetInstance[]
 
   updateProof: (newProof: ProofState) => void
   updateInterimDiags: (newDiags: Diagnostic[]) => void
+  updateStatus: (newStatus: InfoStatus) => void
+  updateMessages: (newMessages: InteractiveDiagnostic[]) => void
+  updateError: (newError: string | undefined) => void
+  updateTermGoal: (newTermGoal: InteractiveTermGoal) => void
+  updateUserWidgets: (newWidgets: UserWidgetInstance[]) => void
   deleteFromStep: (stepNumber: number) => void
   loadProofState: () => Promise<void>
   selectStep: (step?: number) => void
@@ -32,7 +44,7 @@ export interface ProofStateManager {
 }
 
 export const useProofState = (): ProofStateManager => {
-  // All state hooks must come first
+  // State management
   const [proof, setProof] = React.useState<ProofState>({
     steps: [],
     diagnostics: [],
@@ -47,10 +59,27 @@ export const useProofState = (): ProofStateManager => {
   const [uri, setUri] = React.useState<string | null>(null)
   const [rpcService, setRpcService] = React.useState<RpcService | null>(null)
   const rpcServiceRef = React.useRef<RpcService | null>(null)
+  const [status, setStatus] = React.useState<InfoStatus>('updating')
+  const [messages, setMessages] = React.useState<InteractiveDiagnostic[]>([])
+  const [error, setError] = React.useState<string>()
+  const [termGoal, setTermGoal] = React.useState<InteractiveTermGoal>()
+  const [userWidgets, setUserWidgets] = React.useState<UserWidgetInstance[]>([])
 
-  // All callbacks must come after state hooks
+  // Callbacks
   const updateInterimDiags = React.useCallback((newDiags: Diagnostic[]) => {
     setInterimDiags(newDiags)
+  }, [])
+
+  const updateStatus = React.useCallback((newStatus: InfoStatus) => {
+    setStatus(newStatus)
+  }, [])
+
+  const updateMessages = React.useCallback((newMessages: InteractiveDiagnostic[]) => {
+    setMessages(newMessages)
+  }, [])
+
+  const updateError = React.useCallback((newError: string | undefined) => {
+    setError(newError)
   }, [])
 
   const setSession = React.useCallback((newRpcSess: RpcSessionAtPos, newUri: string) => {
@@ -89,11 +118,17 @@ export const useProofState = (): ProofStateManager => {
         setProof(newProof)
         setCrashed(false)
         setInitializing(false)  // Successfully loaded proof state
+        console.log('Loaded proof state:', newProof)
       }
     } catch (error) {
-      console.error('Failed to load proof state:', error)
-      setCrashed(true)
-      setInitializing(false)
+      if (error === "Client is not running") {
+        console.warn('(Spurious) Warning:', error)
+        // Do not set crashed to true for this specific error
+      } else {
+        console.error('Failed to load proof state:', error)
+        setCrashed(true)
+        setInitializing(false)
+      }
     }
   }, [])
 
@@ -115,13 +150,7 @@ export const useProofState = (): ProofStateManager => {
 
   const getDiagnostics = React.useCallback(async (startLine: number, endLine: number) => {
     if (!rpcServiceRef.current) throw new Error('RPC service not initialized')
-    const interactiveDiagnostics = await rpcServiceRef.current.getDiagnostics(startLine, endLine)
-
-    // Map InteractiveDiagnostic to Diagnostic
-    return interactiveDiagnostics.map(diag => ({
-      ...diag,
-      message: extractTextFromTaggedText(diag.message) // Convert TaggedText to string
-    }))
+    return rpcServiceRef.current.getDiagnostics(startLine, endLine)
   }, [])
 
   // Helper function to extract text from TaggedText<MsgEmbed>
@@ -137,21 +166,36 @@ export const useProofState = (): ProofStateManager => {
   }
 
   return {
+    // State
     proof,
     interimDiags,
     crashed,
     initializing,
     selectedStep,
-    rpcSess: rpcSess || undefined,
-    uri: uri || undefined,
-    rpcService: rpcService || undefined,
+    rpcSess,
+    uri,
+    rpcService,
+    status,
+    messages,
+    error,
+    termGoal,
+    userWidgets,
+
+    // Updaters
     updateProof: setProof,
     updateInterimDiags,
+    updateStatus,
+    updateMessages,
+    updateError,
+    updateTermGoal: setTermGoal,
+    updateUserWidgets: setUserWidgets,
     deleteFromStep: () => { }, // TODO: Implement
     loadProofState,
     selectStep: setSelectedStep,
     setSession,
     setCrashed,
+
+    // RPC methods
     getGoals,
     getTermGoal,
     getWidgets,
@@ -163,26 +207,8 @@ export const ProofStateContext = React.createContext<ProofStateManager>(null)
 
 export const ProofStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const proofState = useProofState()
-
-  // Provide initial empty state to avoid null reference errors
-  const value = React.useMemo(() => ({
-    ...proofState,
-    proof: proofState.proof || {
-      steps: [],
-      diagnostics: [],
-      completed: false,
-      completedWithWarnings: false
-    },
-    rpcService: proofState.rpcService || null,
-    rpcSess: proofState.rpcSess || null,
-    uri: proofState.uri || null,
-    interimDiags: proofState.interimDiags || [],
-    crashed: proofState.crashed || false,
-    selectedStep: proofState.selectedStep || undefined,
-  }), [proofState])
-
   return (
-    <ProofStateContext.Provider value={value}>
+    <ProofStateContext.Provider value={proofState}>
       {children}
     </ProofStateContext.Provider>
   )

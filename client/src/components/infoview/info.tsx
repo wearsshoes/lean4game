@@ -294,109 +294,74 @@ function InfoAux(props: InfoProps) {
     // that the displayed state cannot ever get out of sync by showing an old reply together
     // with e.g. a new `pos`.
     type InfoRequestResult = Omit<InfoDisplayProps, 'triggerUpdate'>
-    const [state, triggerUpdateCore] = useAsyncWithTrigger(() => new Promise<InfoRequestResult>((resolve, reject) => {
-
+    const [state, triggerUpdateCore] = useAsyncWithTrigger(async () => {
         if (!rpcSess) {
-            reject('RPC session not initialized')
-            return
+            throw new Error('RPC session not initialized')
         }
 
-        // Use ProofState context for all RPC calls
-        const proofReq = proofState.loadProofState()
-            .then(() => proofState.proof)
-            .catch(error => {
-                console.warn('Failed to get proof state:', error)
-                return undefined
-            })
-        const goalsReq = proofState.getGoals(pos)
-            .catch(error => {
-                console.warn('Failed to get interactive goals:', error)
-                return undefined
-            })
-        const termGoalReq = proofState.getTermGoal(pos)
-            .catch(error => {
-                console.warn('Failed to get interactive term goal:', error)
-                return undefined
-            })
-        const widgetsReq = proofState.getWidgets(pos)
-            .catch(error => {
-                console.warn('Failed to get widgets:', error)
-                return { widgets: [] }
-            })
-        const messagesReq = proofState.getDiagnostics(pos.line, pos.line + 1)
-            .then(diags => diags.length === 0 ? lspDiagsHere.map(lspDiagToInteractive) : diags)
-            .catch(error => {
-                console.warn('Failed to get diagnostics:', error)
-                return lspDiagsHere.map(lspDiagToInteractive)
-            })
+        proofState.updateStatus('updating')
 
-        // While `lake print-paths` is running, the output of Lake is shown as
-        // info diagnostics on line 1.  However, all RPC requests block until
-        // Lake is finished, so we don't see these diagnostics while Lake is
-        // building.  Therefore we show the LSP diagnostics on line 1 if the
-        // server does not respond within half a second.
-        if (pos.line === 0 && lspDiagsHere.length) {
-            setTimeout(() => resolve({
+        try {
+            await proofState.loadProofState()
+            const goals = await proofState.getGoals(pos)
+            const termGoal = await proofState.getTermGoal(pos)
+            const widgets = await proofState.getWidgets(pos)
+            const messages = await proofState.getDiagnostics(pos.line, pos.line + 1)
+                .then(diags => diags.length === 0 ? lspDiagsHere.map(lspDiagToInteractive) : diags)
+
+            proofState.updateStatus('ready')
+            proofState.updateMessages(messages as InteractiveDiagnostic[])
+            proofState.updateTermGoal(termGoal)
+            proofState.updateUserWidgets(widgets?.widgets ?? [])
+            proofState.updateError(undefined)
+
+            return {
                 pos,
-                status: 'updating',
+                status: 'ready',
+                messages,
+                proof: proofState.proof,
+                goals,
+                termGoal,
+                error: undefined,
+                userWidgets: widgets?.widgets ?? [],
+                rpcSess
+            }
+        } catch (ex) {
+            if (ex?.code === RpcErrorCode.ContentModified ||
+                ex?.code === RpcErrorCode.RpcNeedsReconnect) {
+                setUpdaterTick(t => t + 1)
+                throw new Error('retry')
+            }
+
+            let errorString = ''
+            if (typeof ex === 'string') {
+                errorString = ex
+            } else if (isRpcError(ex)) {
+                errorString = mapRpcError(ex).message
+            } else if (ex instanceof Error) {
+                errorString = ex.toString()
+            } else {
+                errorString = `Unrecognized error: ${JSON.stringify(ex)}`
+            }
+
+            proofState.updateStatus('error')
+            proofState.updateMessages(lspDiagsHere.map(lspDiagToInteractive))
+            proofState.updateError(`Error fetching goals: ${errorString}`)
+            proofState.updateUserWidgets([])
+
+            return {
+                pos,
+                status: 'error',
                 messages: lspDiagsHere.map(lspDiagToInteractive),
                 proof: undefined,
                 goals: undefined,
                 termGoal: undefined,
-                error: undefined,
+                error: `Error fetching goals: ${errorString}`,
                 userWidgets: [],
                 rpcSess
-            }), 500)
-        }
-
-        // NB: it is important to await await reqs at once, otherwise
-        // if both throw then one exception becomes unhandled.
-        Promise.all([proofReq, goalsReq, termGoalReq, widgetsReq, messagesReq]).then(
-            ([proof, goals, termGoal, userWidgets, messages]) => resolve({
-                pos,
-                status: 'ready',
-                messages,
-                proof : proof as any,
-                goals: goals as any,
-                termGoal,
-                error: undefined,
-                userWidgets: userWidgets?.widgets ?? [],
-                rpcSess
-            }),
-            ex => {
-                if (ex?.code === RpcErrorCode.ContentModified ||
-                    ex?.code === RpcErrorCode.RpcNeedsReconnect) {
-                    // Document has been changed since we made the request, or we need to reconnect
-                    // to the RPC sessions. Try again.
-                    setUpdaterTick(t => t + 1)
-                    reject('retry')
-                }
-
-                let errorString = ''
-                if (typeof ex === 'string') {
-                    errorString = ex
-                } else if (isRpcError(ex)) {
-                    errorString = mapRpcError(ex).message
-                } else if (ex instanceof Error) {
-                    errorString = ex.toString()
-                } else {
-                    errorString = `Unrecognized error: ${JSON.stringify(ex)}`
-                }
-
-                resolve({
-                    pos,
-                    status: 'error',
-                    messages: lspDiagsHere.map(lspDiagToInteractive),
-                    proof: undefined,
-                    goals: undefined,
-                    termGoal: undefined,
-                    error: `Error fetching goals: ${errorString}`,
-                    userWidgets: [],
-                    rpcSess
-                })
             }
-        )
-    }), [updaterTick, pos.uri, pos.line, pos.character, rpcSess, serverIsProcessing, lspDiagsHere])
+        }
+    }, [updaterTick, pos.uri, pos.line, pos.character, rpcSess, serverIsProcessing, lspDiagsHere])
 
     // We use a timeout to debounce info requests. Whenever a request is already scheduled
     // but something happens that warrants a request for newer info, we cancel the old request
