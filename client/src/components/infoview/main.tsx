@@ -48,7 +48,7 @@ export function DualEditor({ level, codeviewRef, levelId, worldId, worldSize }) 
   const ec = React.useContext(EditorContext)
   const { uiMode, lockUIMode } = React.useContext(InputModeContext)
   return <>
-    <div className={(uiMode === 'codeEditor' && !lockUIMode) ? 'hidden' : ''}>
+    <div className={(uiMode !== 'codeEditor' && !lockUIMode) ? 'hidden' : ''}>
       <ExerciseStatement data={level} showLeanStatement={true} />
       <div ref={codeviewRef} className={'codeview'}></div>
     </div>
