@@ -8,6 +8,7 @@ import { PreferencesState } from '../../state/preferences';
 import { Icons } from '../../icons/icons';
 import { InteractiveDiagnostic, InteractiveTermGoal, UserWidgetInstance } from '@leanprover/infoview/*';
 import { InteractiveGoalsWithHints } from './rpc_api';
+import { LevelInfo } from '../../state/api';
 export const MonacoEditorContext = React.createContext<monaco.editor.IStandaloneCodeEditor>(
   null as any)
 
@@ -86,6 +87,14 @@ export interface InputModeContextType extends InputModeState {
   uiModeCases: Record<UIMode, { icon: any, labelText: string }>;
   toggleInputMode: () => void;
   runCommand: () => void;
+}
+
+/** Props shared between editor modes */
+export interface EditorModeProps {
+  world: string;
+  level: number;
+  data: LevelInfo;
+  worldSize?: number;
 }
 
 export const InputModeContext = React.createContext<InputModeContextType>({

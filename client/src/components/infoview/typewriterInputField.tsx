@@ -5,7 +5,7 @@ import { faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons'
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js'
 import { Registry } from 'monaco-textmate' // peer dependency
 import { wireTmGrammars } from 'monaco-editor-textmate'
-import { DiagnosticSeverity, PublishDiagnosticsParams, DocumentUri } from 'vscode-languageserver-protocol';
+import { PublishDiagnosticsParams, DocumentUri } from 'vscode-languageserver-protocol';
 import { useServerNotificationEffect } from '../../../../node_modules/lean4-infoview/src/infoview/util';
 import { AbbreviationRewriter } from 'lean4web/client/src/editor/abbreviation/rewriter/AbbreviationRewriter';
 import { AbbreviationProvider } from 'lean4web/client/src/editor/abbreviation/AbbreviationProvider';
@@ -13,20 +13,11 @@ import * as leanSyntax from 'lean4web/client/src/syntaxes/lean.json'
 import * as leanMarkdownSyntax from 'lean4web/client/src/syntaxes/lean-markdown.json'
 import * as codeblockSyntax from 'lean4web/client/src/syntaxes/codeblock.json'
 import languageConfig from 'lean4/language-configuration.json';
-import { InteractiveDiagnostic, RpcSessionAtPos, getInteractiveDiagnostics } from '@leanprover/infoview-api';
-import { Diagnostic } from 'vscode-languageserver-types';
-import { DocumentPosition } from '../../../../node_modules/lean4-infoview/src/infoview/util';
-import { RpcContext } from '../../../../node_modules/lean4-infoview/src/infoview/rpcSessions';
 import { DeletedChatContext, InputModeContext, MonacoEditorContext } from './context'
-import { goalsToString, lastStepHasErrors } from './goals'
-import { GameHint, ProofState } from './rpc_api'
+import { lastStepHasErrors } from './goals'
 import { useTranslation } from 'react-i18next'
 import { ProofStateContext } from '../proof_state'
 
-export interface GameDiagnosticsParams {
-  uri: DocumentUri;
-  diagnostics: Diagnostic[];
-}
 
 /* We register a new language `leancmd` that looks like lean4, but does not use the lsp server. */
 
@@ -71,7 +62,7 @@ config.autoClosingPairs = config.autoClosingPairs.map(
 monaco.languages.setLanguageConfiguration('lean4cmd', config);
 
 /** The input field */
-export function Typewriter({disabled}: {disabled?: boolean}) {
+export function TypewriterInputField({disabled}: {disabled?: boolean}) {
   let { t } = useTranslation()
 
   /** Reference to the hidden multi-line editor */
@@ -110,14 +101,11 @@ export function Typewriter({disabled}: {disabled?: boolean}) {
     }
   }, [proof])
 
-  // Handle processing state locally, but let ProofStateContext handle diagnostics
+  // Reset processing state when diagnostics are published
   useServerNotificationEffect('textDocument/publishDiagnostics', (params: PublishDiagnosticsParams) => {
     if (params.uri == uri) {
       setProcessing(false)
-
-      if (!hasErrors(params.diagnostics)) {
-        editor.setPosition(editor.getModel().getFullModelRange().getEndPosition())
-      }
+      editor.setPosition(editor.getModel().getFullModelRange().getEndPosition())
     }
   }, [uri, editor]);
 
@@ -205,32 +193,4 @@ export function Typewriter({disabled}: {disabled?: boolean}) {
         </button>
       </form>
     </div>
-}
-
-/** Checks whether the diagnostics contain any errors or warnings to check whether the level has
-   been completed.*/
-export function hasErrors(diags: Diagnostic[]) {
-  return diags.some(
-    (d) =>
-      !d.message.startsWith("unsolved goals") &&
-      (d.severity == DiagnosticSeverity.Error ) // || d.severity == DiagnosticSeverity.Warning
-  )
-}
-
-// TODO: Didn't manage to unify this with the one above
-export function hasInteractiveErrors (diags: InteractiveDiagnostic[]) {
-  return (typeof diags !== 'undefined') && diags.some(
-    (d) => (d.severity == DiagnosticSeverity.Error ) // || d.severity == DiagnosticSeverity.Warning
-  )
-}
-
-export function getInteractiveDiagsAt (proof: ProofState, k : number) {
-  if (k == 0) {
-    return []
-  } else if (k >= proof?.steps.length-1) {
-    // TODO: Do we need that?
-    return proof?.diagnostics.filter(msg => msg.range.start.line >= proof?.steps.length-1)
-  } else {
-    return proof?.diagnostics.filter(msg => msg.range.start.line == k-1)
-  }
 }

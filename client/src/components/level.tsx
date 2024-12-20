@@ -27,7 +27,7 @@ import { store } from '../state/store'
 import { Button } from './button'
 import Markdown from './markdown'
 import {InventoryPanel} from './inventory'
-import { hasInteractiveErrors } from './infoview/typewriter'
+import { hasInteractiveErrors } from './infoview/main'
 import { DeletedChatContext, InputModeContext, PreferencesContext, MonacoEditorContext, SelectionContext, WorldLevelIdContext } from './infoview/context'
 
 import { DualEditor } from './infoview/main'
