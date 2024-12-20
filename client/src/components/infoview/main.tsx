@@ -46,9 +46,9 @@ import path from 'path';
  */
 export function DualEditor({ level, codeviewRef, levelId, worldId, worldSize }) {
   const ec = React.useContext(EditorContext)
-  const { typewriterMode, lockInterfaceMode: lockEditorMode } = React.useContext(InputModeContext)
+  const { uiMode, lockUIMode } = React.useContext(InputModeContext)
   return <>
-    <div className={(typewriterMode && !lockEditorMode) ? 'hidden' : ''}>
+    <div className={(uiMode === 'codeEditor' && !lockUIMode) ? 'hidden' : ''}>
       <ExerciseStatement data={level} showLeanStatement={true} />
       <div ref={codeviewRef} className={'codeview'}></div>
     </div>
@@ -64,7 +64,7 @@ export function DualEditor({ level, codeviewRef, levelId, worldId, worldSize }) 
 function DualEditorMain({ worldId, levelId, level, worldSize }: { worldId: string, levelId: number, level: LevelInfo, worldSize: number }) {
   const ec = React.useContext(EditorContext)
   const gameId = React.useContext(GameIdContext)
-  const { typewriterMode, lockInterfaceMode: lockEditorMode } = React.useContext(InputModeContext)
+  const { uiMode, lockUIMode } = React.useContext(InputModeContext)
 
   const {proof, setProof} = React.useContext(ProofContext)
 
@@ -114,7 +114,7 @@ function DualEditorMain({ worldId, levelId, level, worldSize }: { worldId: strin
         <WithRpcSessions>
           <WithLspDiagnosticsContext>
             <ProgressContext.Provider value={allProgress}>
-              {(typewriterMode && !lockEditorMode) ?
+              {(uiMode === 'typewriter' && !lockUIMode) ?
                 <TypewriterInterfaceWrapper world={worldId} level={levelId} data={level} worldSize={worldSize}/>
                 :
                 <Main key={`${worldId}/${levelId}`} world={worldId} level={levelId} data={level} />
@@ -311,7 +311,7 @@ function Command({ proof, i, deleteProof }: { proof: ProofState, i: number, dele
 //       message = diag.message
 //   }
 
-//   const { typewriterMode } = React.useContext(InputModeContext)
+//   const { uiMode } = React.useContext(InputModeContext)
 
 //   return (
 //   // <details open>
@@ -330,7 +330,7 @@ function Command({ proof, i, deleteProof }: { proof: ProofState, i: number, dele
 //       //     </span>
 //       // </summary>
 //       <div className={severityClass + ' ml1 message'}>
-//           {!typewriterMode && <p className="mv2">{title}</p>}
+//           {!uiMode && <p className="mv2">{title}</p>}
 //           <pre className="font-code pre-wrap">
 //               <InteractiveMessage fmt={message} />
 //           </pre>
@@ -553,12 +553,12 @@ export function TypewriterInterface({props}) {
               //   // entered command as it is still present in the command line.
               //   // TODO: Should not use index as key.
               //   return <div key={`proof-step-${i}`} className={`step step-${i}`}>
-              //     <Errors errors={step.diags} typewriterMode={true} />
+              //     <Errors errors={step.diags} uiMode={true} />
               //   </div>
               // } else {
                 return <div key={`proof-step-${i}`} className={`step step-${i}` + (selectedStep == i ? ' selected' : '')}>
                   <Command proof={proof} i={i} deleteProof={deleteProof(i)} />
-                  <Errors errors={step.diags} typewriterMode={true} />
+                  <Errors errors={step.diags} uiMode={'typewriter'} />
                   {mobile && i == 0 && props.data?.introduction &&
                     <div className={`message information step-0${selectedStep === 0 ? ' selected' : ''}`} onClick={toggleSelectStep(0)}>
                       <Markdown>{props.data?.introduction}</Markdown>
@@ -595,7 +595,7 @@ export function TypewriterInterface({props}) {
             )}
             {proof?.diagnostics.length > 0 &&
               <div key={`proof-step-remaining`} className="step step-remaining">
-                <Errors errors={proof?.diagnostics} typewriterMode={true} />
+                <Errors errors={proof?.diagnostics} uiMode={'typewriter'} />
               </div>
             }
             {mobile && proof?.completed &&

@@ -5,6 +5,7 @@ import { createSlice } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { loadState } from "./local_storage";
 import { WorkDoneProgressBegin } from 'vscode-languageserver-protocol';
+import { UIMode } from '../components/infoview/context'
 
 interface Selection {
   selectionStartLineNumber: number,
@@ -27,7 +28,7 @@ export interface GameProgressState {
   difficulty: number,
   openedIntro: boolean,
   data: WorldProgressState,
-  typewriterMode?: boolean
+  uiMode?: UIMode
 }
 
 /**
@@ -128,9 +129,9 @@ export const progressSlice = createSlice({
       state.games[action.payload.game.toLowerCase()].openedIntro = action.payload.openedIntro
     },
     /** set the typewriter mode */
-    changeTypewriterMode(state: ProgressState, action: PayloadAction<{game: string, typewriterMode: boolean}>) {
+    changeUIMode(state: ProgressState, action: PayloadAction<{game: string, uiMode: UIMode}>) {
       addGameProgress(state, action)
-      state.games[action.payload.game.toLowerCase()].typewriterMode = action.payload.typewriterMode
+      state.games[action.payload.game.toLowerCase()].uiMode = action.payload.uiMode
     }
   }
 })
@@ -203,13 +204,22 @@ export function selectOpenedIntro(game: string) {
 }
 
 /** return typewriter mode for the current game if it exists */
-export function selectTypewriterMode(game: string) {
+export function selectUIMode(game: string) {
   return (state) => {
-    return state.progress.games[game.toLowerCase()]?.typewriterMode ?? true
+    const gameState = state.progress.games[game.toLowerCase()]
+    if (!gameState) return 'typewriter'
+
+    // Handle new format
+    if (gameState.uiMode !== undefined) {
+      return gameState.uiMode
+    }
+
+    // Handle legacy format
+    return gameState.typewriterMode === true ? 'typewriter' : 'codeEditor'
   }
 }
 
 /** Export actions to modify the progress */
 export const { changedSelection, codeEdited, levelCompleted, deleteProgress,
   deleteLevelProgress, loadProgress, helpEdited, changedInventory, changedOpenedIntro,
-  changedDifficulty, changeTypewriterMode} = progressSlice.actions
+  changedDifficulty, changeUIMode} = progressSlice.actions

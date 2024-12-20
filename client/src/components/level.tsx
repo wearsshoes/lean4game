@@ -22,7 +22,7 @@ import { GameIdContext } from '../app'
 import { useAppDispatch, useAppSelector } from '../hooks'
 import { useGetGameInfoQuery, useLoadInventoryOverviewQuery, useLoadLevelQuery } from '../state/api'
 import { changedSelection, codeEdited, selectCode, selectSelections, selectCompleted, helpEdited,
-  selectHelp, selectDifficulty, selectInventory, selectTypewriterMode, changeTypewriterMode } from '../state/progress'
+  selectHelp, selectDifficulty, selectInventory, selectUIMode, changeUIMode } from '../state/progress'
 import { store } from '../state/store'
 import { Button } from './button'
 import Markdown from './markdown'
@@ -56,6 +56,7 @@ import { PreferencesPopup } from './popup/preferences'
 import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
 
+import { UIMode } from './infoview/context'
 
 monacoSetup()
 
@@ -224,8 +225,8 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
   const initialCode = useAppSelector(selectCode(gameId, worldId, levelId))
   const initialSelections = useAppSelector(selectSelections(gameId, worldId, levelId))
 
-  const typewriterMode = useSelector(selectTypewriterMode(gameId))
-  const setTypewriterMode = (newTypewriterMode: boolean) => dispatch(changeTypewriterMode({game: gameId, typewriterMode: newTypewriterMode}))
+  const uiMode = useSelector(selectUIMode(gameId))
+  const setUIMode = (newUIMode: UIMode) => dispatch(changeUIMode({game: gameId, uiMode: newUIMode}))
 
   const gameInfo = useGetGameInfoQuery({game: gameId})
   const level = useLoadLevelQuery({game: gameId, world: worldId, level: levelId})
@@ -245,7 +246,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
   const [pageNumber, setPageNumber] = useState(0)
 
   // set to true to prevent switching between typewriter and editor
-  const [lockEditorMode, setLockEditorMode] = useState(false)
+  const [lockUIMode, setLockUIMode] = useState(false)
   const [typewriterInput, setTypewriterInput] = useState("")
   const lastLevel = levelId >= gameInfo.data?.worldSize[worldId]
 
@@ -309,7 +310,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
   useEffect (() => {
     // Lock editor mode
     if (level?.data?.template) {
-      setLockEditorMode(true)
+      setLockUIMode(true)
 
       if (editor) {
         let code = editor.getModel().getLinesContent()
@@ -337,7 +338,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
         }
       }
     } else {
-      setLockEditorMode(false)
+      setLockUIMode(false)
     }
   }, [level, levelId, worldId, gameId, editor])
 
@@ -352,7 +353,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
   }, [gameId, worldId, levelId])
 
   useEffect(() => {
-    if (!(typewriterMode && !lockEditorMode) && editor) {
+    if (!(uiMode === 'typewriter' && !lockUIMode) && editor) {
       // Delete last input attempt from command line
       editor.executeEdits("typewriter", [{
         range: editor.getSelection(),
@@ -361,7 +362,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
       }]);
       editor.focus()
     }
-  }, [typewriterMode, lockEditorMode])
+  }, [uiMode, lockUIMode])
 
   useEffect(() => {
     // Forget whether hidden hints are displayed for steps that don't exist yet
@@ -381,7 +382,7 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
 
   // Effect when command line mode gets enabled
   useEffect(() => {
-    if (onigasmH && editor && (typewriterMode && !lockEditorMode)) {
+    if (onigasmH && editor && (uiMode === 'typewriter' && !lockUIMode)) {
       let code = editor.getModel().getLinesContent().filter(line => line.trim())
       editor.executeEdits("typewriter", [{
         range: editor.getModel().getFullModelRange(),
@@ -404,13 +405,13 @@ function PlayableLevel({impressum, setImpressum, toggleInfo, togglePreferencesPo
       //   editor.setSelection(monaco.Selection.fromPositions(endPos, endPos))
       // }
     }
-  }, [editor, typewriterMode, lockEditorMode, onigasmH == null])
+  }, [editor, uiMode, lockUIMode, onigasmH == null])
 
   return <>
     <div style={level.isLoading ? null : {display: "none"}} className="app-content loading"><CircularProgress /></div>
     <DeletedChatContext.Provider value={{deletedChat, setDeletedChat, showHelp, setShowHelp}}>
       <SelectionContext.Provider value={{selectedStep, setSelectedStep}}>
-        <InputModeContext.Provider value={{typewriterMode, setTypewriterMode, typewriterInput, setTypewriterInput, lockInterfaceMode: lockEditorMode, setLockInterfaceMode: setLockEditorMode}}>
+        <InputModeContext.Provider value={{uiMode, setUIMode, typewriterInput, setTypewriterInput, lockUIMode: lockUIMode, setLockUIMode: setLockUIMode}}>
           <ProofContext.Provider value={{proof, setProof, interimDiags, setInterimDiags, crashed: isCrashed, setCrashed: setIsCrashed}}>
             <EditorContext.Provider value={editorConnection}>
               <MonacoEditorContext.Provider value={editor}>
