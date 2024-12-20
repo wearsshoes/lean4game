@@ -26,8 +26,9 @@ import Markdown from '../markdown';
 
 import { Infos } from './infos';
 import { AllMessages, Errors, WithLspDiagnosticsContext } from './messages';
-import { Goal, isLastStepWithErrors, lastStepHasErrors, loadGoals } from './goals';
-import { DeletedChatContext, InputModeContext, PreferencesContext, MonacoEditorContext, ProofContext, SelectionContext, WorldLevelIdContext } from './context';
+import { Goal, isLastStepWithErrors, lastStepHasErrors } from './goals';
+import { DeletedChatContext, InputModeContext, PreferencesContext, MonacoEditorContext, SelectionContext, WorldLevelIdContext } from './context';
+import { ProofStateContext } from '../proof_state';
 import { Typewriter, getInteractiveDiagsAt, hasErrors, hasInteractiveErrors } from './typewriter';
 import { InteractiveDiagnostic } from '@leanprover/infoview/*';
 import { Button } from '../button';
@@ -60,18 +61,42 @@ export function DualEditor({ level, codeviewRef, levelId, worldId, worldSize }) 
   </>
 }
 
+/** Wrapper component to handle RPC session setup */
+function RpcSessionWrapper({ children }: { children: React.ReactNode }) {
+  const editor = React.useContext(MonacoEditorContext)
+  const model = editor.getModel()
+  const uri = model.uri.toString()
+  const { setSession } = React.useContext(ProofStateContext)
+
+  // Set up RPC session
+  const rpcSess = useRpcSessionAtPos({uri: uri, line: 0, character: 0})
+
+  // Update RPC session when it changes
+  const updateSession = React.useCallback(() => {
+    if (rpcSess && uri) {
+      setSession(rpcSess, uri)
+    }
+  }, [rpcSess, uri, setSession])
+
+  React.useEffect(() => {
+    updateSession()
+  }, [updateSession])
+
+  return <>{children}</>
+}
+
 /** The part of the two editors that needs the editor connection first */
 function DualEditorMain({ worldId, levelId, level, worldSize }: { worldId: string, levelId: number, level: LevelInfo, worldSize: number }) {
   const ec = React.useContext(EditorContext)
   const gameId = React.useContext(GameIdContext)
   const { uiMode, lockUIMode } = React.useContext(InputModeContext)
 
-  const {proof, setProof} = React.useContext(ProofContext)
+  const proofState = React.useContext(ProofStateContext)
 
   const dispatch = useAppDispatch()
 
   React.useEffect(() => {
-    if (proof?.completed) {
+    if (proofState.proof?.completed) {
       dispatch(levelCompleted({ game: gameId, world: worldId, level: levelId }))
 
       // On completion, add the names of all new items to the local storage
@@ -94,7 +119,7 @@ function DualEditorMain({ worldId, levelId, level, worldSize }: { worldId: strin
       dispatch(changedInventory({ game: gameId, inventory: newInv }))
 
     }
-  }, [proof, level])
+  }, [proofState.proof, level])
 
   /* Set up updates to the global infoview state on editor events. */
   const config = useEventResult(ec.events.changedInfoviewConfig) ?? defaultInfoviewConfig;
@@ -114,11 +139,13 @@ function DualEditorMain({ worldId, levelId, level, worldSize }: { worldId: strin
         <WithRpcSessions>
           <WithLspDiagnosticsContext>
             <ProgressContext.Provider value={allProgress}>
-              {(uiMode === 'typewriter' && !lockUIMode) ?
-                <TypewriterInterfaceWrapper world={worldId} level={levelId} data={level} worldSize={worldSize}/>
-                :
-                <Main key={`${worldId}/${levelId}`} world={worldId} level={levelId} data={level} />
-              }
+              <RpcSessionWrapper>
+                {(uiMode === 'typewriter' && !lockUIMode) ?
+                  <TypewriterInterfaceWrapper world={worldId} level={levelId} data={level} worldSize={worldSize}/>
+                  :
+                  <Main key={`${worldId}/${levelId}`} world={worldId} level={levelId} data={level} />
+                }
+              </RpcSessionWrapper>
             </ProgressContext.Provider>
           </WithLspDiagnosticsContext>
         </WithRpcSessions>
@@ -162,7 +189,7 @@ export function Main(props: { world: string, level: number, data: LevelInfo}) {
   const gameId = React.useContext(GameIdContext)
   const {worldId, levelId} = React.useContext(WorldLevelIdContext)
 
-  const { proof, setProof } = React.useContext(ProofContext)
+  const proofState = React.useContext(ProofStateContext)
   const {selectedStep, setSelectedStep} = React.useContext(SelectionContext)
   const { setDeletedChat, showHelp, setShowHelp } = React.useContext(DeletedChatContext)
 
@@ -240,16 +267,30 @@ export function Main(props: { world: string, level: number, data: LevelInfo}) {
     ret = <div><p>{serverStoppedResult.message}</p><p className="error">{serverStoppedResult.reason}</p></div>
   } else {
     ret = <div className="infoview vscode-light">
-      {proof?.completedWithWarnings &&
+      {!(proofState as any).initializing && proofState.proof?.completedWithWarnings &&
         <div className="level-completed">
-          {proof?.completed ? t("Level completed! 🎉") : t("Level completed with warnings 🎭")}
+          {proofState.proof?.completed ? t("Level completed! 🎉") : t("Level completed with warnings 🎭")}
         </div>
       }
       <Infos />
-      <Hints hints={proof?.steps[curPos?.line]?.goals[0]?.hints}
-        showHidden={showHelp.has(curPos?.line)} step={curPos?.line}
-        selected={selectedStep} toggleSelection={toggleSelection(curPos?.line)}
-        lastLevel={curPos?.line == proof?.steps.length - 1}/>
+      {curPos && proofState.proof?.steps && (() => {
+        const pos = curPos.line + (curPos.character == 0 ? 0 : 1)
+        const isLast = pos === proofState.proof.steps.length - (lastStepHasErrors(proofState.proof) ? 2 : 1)
+        return <>
+          {proofState.proof.steps[pos]?.goals &&
+            <GoalsTabs
+              proofStep={proofState.proof.steps[pos]}
+              last={isLast}
+              onClick={toggleSelection(pos)}
+              onGoalChange={isLast ? (n) => console.debug(`Goal ${n} selected`) : undefined}
+            />
+          }
+          <Hints hints={proofState.proof?.steps[pos]?.goals[0]?.hints}
+            showHidden={showHelp.has(pos)} step={pos}
+            selected={selectedStep} toggleSelection={toggleSelection(pos)}
+            lastLevel={pos === proofState.proof.steps.length - 1}/>
+        </>
+      })()}
       <MoreHelpButton selected={curPos?.line}/>
     </div>
   }
@@ -266,7 +307,8 @@ const goalFilter = {
 }
 
 /** The display of a single entered lean command */
-function Command({ proof, i, deleteProof }: { proof: ProofState, i: number, deleteProof: any }) {
+function Command({ i, deleteProof }: { i: number, deleteProof: any }) {
+  const { proof } = React.useContext(ProofStateContext)
   let {t} = useTranslation()
 
   // The first step will always have an empty command
@@ -364,9 +406,9 @@ function GoalsTabs({ proofStep, last, onClick, onGoalChange=(n)=>{}}: { proofSte
 }
 
 // Splitting up Typewriter into two parts is a HACK
+/** Wrapper for TypewriterInterface that handles server version checks */
 export function TypewriterInterfaceWrapper(props: { world: string, level: number, data: LevelInfo, worldSize: number }) {
   const ec = React.useContext(EditorContext)
-  const gameId = React.useContext(GameIdContext)
 
   useClientNotificationEffect(
     'textDocument/didClose',
@@ -381,9 +423,6 @@ export function TypewriterInterfaceWrapper(props: { world: string, level: number
   const serverVersion =
     useEventResult(ec.events.serverRestarted, result => new ServerVersion(result.serverInfo?.version ?? ''))
   const serverStoppedResult = useEventResult(ec.events.serverStopped);
-  // NB: the cursor may temporarily become `undefined` when a file is closed. In this case
-  // it's important not to reconstruct the `WithBlah` wrappers below since they contain state
-  // that we want to persist.
 
   if (!serverVersion) { return <></> }
   if (serverStoppedResult) {
@@ -414,15 +453,13 @@ export function TypewriterInterface({props}) {
   const [loadingProgress, setLoadingProgress] = React.useState<number>(0)
   const { setDeletedChat, showHelp, setShowHelp } = React.useContext(DeletedChatContext)
   const {mobile} = React.useContext(PreferencesContext)
-  const { proof, setProof, crashed, setCrashed, interimDiags } = React.useContext(ProofContext)
+  const { proof, crashed, interimDiags, updateProof: setProof, loadProofState } = React.useContext(ProofStateContext)
   const { setTypewriterInput } = React.useContext(InputModeContext)
   const { selectedStep, setSelectedStep } = React.useContext(SelectionContext)
 
   const proofPanelRef = React.useRef<HTMLDivElement>(null)
   // const config = useEventResult(ec.events.changedInfoviewConfig) ?? defaultInfoviewConfig;
   // const curUri = useEventResult(ec.events.changedCursorLocation, loc => loc?.uri);
-
-  const rpcSess = useRpcSessionAtPos({uri: uri, line: 0, character: 0})
 
   /** Delete all proof lines starting from a given line.
   * Note that the first line (i.e. deleting everything) is `1`!
@@ -452,7 +489,7 @@ export function TypewriterInterface({props}) {
       setSelectedStep(undefined)
       setTypewriterInput(proof?.steps[line].command)
       // Reload proof on deleting
-      loadGoals(rpcSess, uri, setProof, setCrashed)
+      loadProofState()
       ev.stopPropagation()
     }
   }
@@ -508,7 +545,6 @@ export function TypewriterInterface({props}) {
   })
 
   return <div className="typewriter-interface">
-    <RpcContext.Provider value={rpcSess}>
     <div className="content">
       <div className='world-image-container empty'>
         {image &&
@@ -557,7 +593,7 @@ export function TypewriterInterface({props}) {
               //   </div>
               // } else {
                 return <div key={`proof-step-${i}`} className={`step step-${i}` + (selectedStep == i ? ' selected' : '')}>
-                  <Command proof={proof} i={i} deleteProof={deleteProof(i)} />
+                  <Command i={i} deleteProof={deleteProof(i)} />
                   <Errors errors={step.diags} uiMode={'typewriter'} />
                   {mobile && i == 0 && props.data?.introduction &&
                     <div className={`message information step-0${selectedStep === 0 ? ' selected' : ''}`} onClick={toggleSelectStep(0)}>
@@ -619,6 +655,5 @@ export function TypewriterInterface({props}) {
       </div>
     </div>
     <Typewriter disabled={disableInput || !proof?.steps.length}/>
-    </RpcContext.Provider>
   </div>
 }

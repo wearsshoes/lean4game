@@ -15,7 +15,8 @@ import { GoalsLocation, Locations, LocationsContext } from '../../../../node_mod
 import { AllMessages, lspDiagToInteractive } from './messages'
 import { goalsToString, Goal, MainAssumptions, OtherGoals } from './goals'
 import { InteractiveTermGoal, InteractiveGoalsWithHints, InteractiveGoals, ProofState } from './rpc_api'
-import { MonacoEditorContext, ProofStateProps, InfoStatus, ProofContext } from './context'
+import { MonacoEditorContext, ProofStateProps, InfoStatus } from './context'
+import { ProofStateContext } from '../proof_state'
 import { useTranslation } from 'react-i18next'
 
 // TODO: All about pinning could probably be removed
@@ -256,7 +257,7 @@ function useIsProcessingAt(p: DocumentPosition): boolean {
 
 function InfoAux(props: InfoProps) {
 
-    const { setProof } = React.useContext(ProofContext)
+    const proofState = React.useContext(ProofStateContext)
 
     const config = React.useContext(ConfigContext)
 
@@ -295,16 +296,39 @@ function InfoAux(props: InfoProps) {
     type InfoRequestResult = Omit<InfoDisplayProps, 'triggerUpdate'>
     const [state, triggerUpdateCore] = useAsyncWithTrigger(() => new Promise<InfoRequestResult>((resolve, reject) => {
 
-        const proofReq = rpcSess.call('Game.getProofState', DocumentPosition.toTdpp(pos)).catch((error) => {
-            console.warn(error)
-          })
-        const goalsReq = rpcSess.call('Game.getInteractiveGoals', DocumentPosition.toTdpp(pos))
-        const termGoalReq = getInteractiveTermGoal(rpcSess, DocumentPosition.toTdpp(pos))
-        const widgetsReq = Widget_getWidgets(rpcSess, pos).catch(discardMethodNotFound)
-        const messagesReq = getInteractiveDiagnostics(rpcSess, {start: pos.line, end: pos.line+1})
-            // fall back to non-interactive diagnostics when lake fails
-            // (see https://github.com/leanprover/vscode-lean4/issues/90)
+        if (!rpcSess) {
+            reject('RPC session not initialized')
+            return
+        }
+
+        // Use ProofState context for all RPC calls
+        const proofReq = proofState.loadProofState()
+            .then(() => proofState.proof)
+            .catch(error => {
+                console.warn('Failed to get proof state:', error)
+                return undefined
+            })
+        const goalsReq = proofState.getGoals(pos)
+            .catch(error => {
+                console.warn('Failed to get interactive goals:', error)
+                return undefined
+            })
+        const termGoalReq = proofState.getTermGoal(pos)
+            .catch(error => {
+                console.warn('Failed to get interactive term goal:', error)
+                return undefined
+            })
+        const widgetsReq = proofState.getWidgets(pos)
+            .catch(error => {
+                console.warn('Failed to get widgets:', error)
+                return { widgets: [] }
+            })
+        const messagesReq = proofState.getDiagnostics(pos.line, pos.line + 1)
             .then(diags => diags.length === 0 ? lspDiagsHere.map(lspDiagToInteractive) : diags)
+            .catch(error => {
+                console.warn('Failed to get diagnostics:', error)
+                return lspDiagsHere.map(lspDiagToInteractive)
+            })
 
         // While `lake print-paths` is running, the output of Lake is shown as
         // info diagnostics on line 1.  However, all RPC requests block until
@@ -409,31 +433,30 @@ function InfoAux(props: InfoProps) {
         triggerUpdate
     })
 
-    // Propagates changes in the state of async info requests to the display props,
-    // and re-requests info if needed.
-    // This effect triggers new requests for info whenever need. It also propagates changes
-    // in the state of the `useAsyncWithTrigger` to the displayed props.
+    // Handle all state changes in a single effect with proper type checking
     React.useEffect(() => {
-        if (state.state === 'notStarted')
-            void triggerUpdate()
-        else if (state.state === 'loading') {
-          setDisplayProps(dp => ({ ...dp, status: 'updating' }))
+        switch (state.state) {
+            case 'notStarted':
+                void triggerUpdate()
+                break
+            case 'loading':
+                setDisplayProps(dp => ({ ...dp, status: 'updating' }))
+                break
+            case 'resolved':
+                setDisplayProps({ ...state.value, triggerUpdate })
+                if (state.value.proof) {
+                    console.debug('Updating proof state from editor mode')
+                    proofState.updateProof(state.value.proof)
+                    proofState.setCrashed(false)
+                }
+                break
+            case 'rejected':
+                if (state.error !== 'retry') {
+                    console.warn('Unreachable code reached with error: ', state.error)
+                }
+                break
         }
-        else if (state.state === 'resolved') {
-          // if (state.value.goals?.goals?.length) {
-          //   hintContext.setHints(state.value.goals.goals[0].hints)
-          // }
-          setDisplayProps({ ...state.value, triggerUpdate })
-
-          // Update the game's proof state
-          console.info('updating proof from editor mode.')
-          setProof(state.value.proof)
-
-        } else if (state.state === 'rejected' && state.error !== 'retry') {
-            // The code inside `useAsyncWithTrigger` may only ever reject with a `retry` exception.
-            console.warn('Unreachable code reached with error: ', state.error)
-        }
-    }, [state])
+    }, [state, triggerUpdate, proofState])
 
     return <InfoDisplay kind={props.kind} onPin={props.onPin} {...displayProps} />
 }

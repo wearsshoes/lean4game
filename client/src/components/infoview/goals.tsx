@@ -11,10 +11,9 @@ import { InteractiveCode } from '../../../../node_modules/lean4-infoview/src/inf
 import { WithTooltipOnHover } from '../../../../node_modules/lean4-infoview/src/infoview/tooltips';
 import { InputModeContext } from './context';
 import { InteractiveGoal, InteractiveGoals, InteractiveGoalsWithHints, InteractiveHypothesisBundle, ProofState } from './rpc_api';
-import { RpcSessionAtPos } from '@leanprover/infoview/*';
-import { DocumentPosition } from '../../../../node_modules/lean4-infoview/src/infoview/util';
 import { DiagnosticSeverity } from 'vscode-languageserver-protocol';
 import { useTranslation } from 'react-i18next';
+import { ProofStateManager } from '../proof_state';
 
 /** Returns true if `h` is inaccessible according to Lean's default name rendering. */
 function isInaccessibleName(h: string): boolean {
@@ -91,7 +90,7 @@ function Hyp({ hyp: h, mvarId }: HypProps) {
             <SelectableLocation
                 locs={locs}
                 loc={mvarId && h.fvarIds && h.fvarIds.length > i ?
-                    { mvarId, loc: { hyp: h.fvarIds[i] }} :
+                    { mvarId, loc: { hyp: h.fvarIds[i] } } :
                     undefined
                 }
                 alwaysHighlight={false}
@@ -100,13 +99,13 @@ function Hyp({ hyp: h, mvarId }: HypProps) {
 
     const typeLocs: Locations | undefined = React.useMemo(() =>
         locs && mvarId && h.fvarIds && h.fvarIds.length > 0 ?
-            { ...locs, subexprTemplate: { mvarId, loc: { hypType: [h.fvarIds[0], ''] }}} :
+            { ...locs, subexprTemplate: { mvarId, loc: { hypType: [h.fvarIds[0], ''] } } } :
             undefined,
         [locs, mvarId, h.fvarIds])
 
     const valLocs: Locations | undefined = React.useMemo(() =>
         h.val && locs && mvarId && h.fvarIds && h.fvarIds.length > 0 ?
-            { ...locs, subexprTemplate: { mvarId, loc: { hypValue: [h.fvarIds[0], ''] }}} :
+            { ...locs, subexprTemplate: { mvarId, loc: { hypValue: [h.fvarIds[0], ''] } } } :
             undefined,
         [h.val, locs, mvarId, h.fvarIds])
 
@@ -124,8 +123,8 @@ function Hyp({ hyp: h, mvarId }: HypProps) {
 }
 
 interface GoalProps2 {
-  goals: InteractiveGoal[]
-  filter: GoalFilterState
+    goals: InteractiveGoal[]
+    filter: GoalFilterState
 }
 
 interface GoalProps {
@@ -143,14 +142,14 @@ export const Goal = React.memo((props: GoalProps) => {
     let { t } = useTranslation()
 
     // TODO: Apparently `goal` can be `undefined`
-    if (!goal) {return <></>}
+    if (!goal) { return <></> }
 
     const filteredList = getFilteredHypotheses(goal.hyps, filter);
     const hyps = filter.reverse ? filteredList.slice().reverse() : filteredList;
     const locs = React.useContext(LocationsContext)
     const goalLocs = React.useMemo(() =>
         locs && goal.mvarId ?
-            { ...locs, subexprTemplate: { mvarId: goal.mvarId, loc: { target: '' }}} :
+            { ...locs, subexprTemplate: { mvarId: goal.mvarId, loc: { target: '' } } } :
             undefined,
         [locs, goal.mvarId])
     const goalLi = <div key={'goal'}>
@@ -171,72 +170,72 @@ export const Goal = React.memo((props: GoalProps) => {
     return <div>
         {/* {goal.userName && <div><strong className="goal-case">case </strong>{goal.userName}</div>} */}
         {filter.reverse && goalLi}
-        {! typewriter && objectHyps.length > 0 &&
+        {!typewriter && objectHyps.length > 0 &&
             <div className="hyp-group"><div className="hyp-group-title">{t("Objects")}:</div>
-            {objectHyps.map((h, i) => <Hyp hyp={h} mvarId={goal.mvarId} key={i} />)}</div> }
+                {objectHyps.map((h, i) => <Hyp hyp={h} mvarId={goal.mvarId} key={i} />)}</div>}
         {!typewriter && assumptionHyps.length > 0 &&
             <div className="hyp-group"><div className="hyp-group-title">{t("Assumptions")}:</div>
-            {assumptionHyps.map((h, i) => <Hyp hyp={h} mvarId={goal.mvarId} key={i} />)}</div> }
+                {assumptionHyps.map((h, i) => <Hyp hyp={h} mvarId={goal.mvarId} key={i} />)}</div>}
         {!filter.reverse && goalLi}
         {/* {showHints && hints} */}
     </div>
 })
 
 export const MainAssumptions = React.memo((props: GoalProps2) => {
-  let { t } = useTranslation()
-  const { goals, filter } = props
+    let { t } = useTranslation()
+    const { goals, filter } = props
 
-  const goal = goals[0]
-  const filteredList = getFilteredHypotheses(goal.hyps, filter);
-  const hyps = filter.reverse ? filteredList.slice().reverse() : filteredList;
-  const locs = React.useContext(LocationsContext)
+    const goal = goals[0]
+    const filteredList = getFilteredHypotheses(goal.hyps, filter);
+    const hyps = filter.reverse ? filteredList.slice().reverse() : filteredList;
+    const locs = React.useContext(LocationsContext)
 
-  const goalLocs = React.useMemo(() =>
-    locs && goal.mvarId ?
-      { ...locs, subexprTemplate: { mvarId: goal.mvarId, loc: { target: '' }}} :
-        undefined,
-      [locs, goal.mvarId])
+    const goalLocs = React.useMemo(() =>
+        locs && goal.mvarId ?
+            { ...locs, subexprTemplate: { mvarId: goal.mvarId, loc: { target: '' } } } :
+            undefined,
+        [locs, goal.mvarId])
 
-  const goalLi = <div key={'goal'}>
-    <div className="goal-title">{t("Goal") + ":"}</div>
-    <LocationsContext.Provider value={goalLocs}>
-      <InteractiveCode fmt={goal.type} />
-    </LocationsContext.Provider>
-  </div>
+    const goalLi = <div key={'goal'}>
+        <div className="goal-title">{t("Goal") + ":"}</div>
+        <LocationsContext.Provider value={goalLocs}>
+            <InteractiveCode fmt={goal.type} />
+        </LocationsContext.Provider>
+    </div>
 
-  const objectHyps = hyps.filter(hyp => !hyp.isAssumption)
-  const assumptionHyps = hyps.filter(hyp => hyp.isAssumption)
+    const objectHyps = hyps.filter(hyp => !hyp.isAssumption)
+    const assumptionHyps = hyps.filter(hyp => hyp.isAssumption)
 
-  return <div id="main-assumptions">
-    <div className="goals-section-title">{t("Current Goal")}</div>
-    {filter.reverse && goalLi}
-    { objectHyps.length > 0 &&
-      <div className="hyp-group"><div className="hyp-group-title">{t("Objects") + ":"}</div>
-      {objectHyps.map((h, i) => <Hyp hyp={h} mvarId={goal.mvarId} key={i} />)}</div> }
-    { assumptionHyps.length > 0 &&
-      <div className="hyp-group">
-        <div className="hyp-group-title">{t("Assumptions") + ":"}</div>
-        {assumptionHyps.map((h, i) => <Hyp hyp={h} mvarId={goal.mvarId} key={i} />)}
-      </div> }
-  </div>
+    return <div id="main-assumptions">
+        <div className="goals-section-title">{t("Current Goal")}</div>
+        {filter.reverse && goalLi}
+        {objectHyps.length > 0 &&
+            <div className="hyp-group"><div className="hyp-group-title">{t("Objects") + ":"}</div>
+                {objectHyps.map((h, i) => <Hyp hyp={h} mvarId={goal.mvarId} key={i} />)}</div>}
+        {assumptionHyps.length > 0 &&
+            <div className="hyp-group">
+                <div className="hyp-group-title">{t("Assumptions") + ":"}</div>
+                {assumptionHyps.map((h, i) => <Hyp hyp={h} mvarId={goal.mvarId} key={i} />)}
+            </div>}
+    </div>
 })
 
 export const OtherGoals = React.memo((props: GoalProps2) => {
-  let { t } = useTranslation()
-  const { goals, filter } = props
-  return <>
-    {goals && goals.length > 1 &&
-      <div id="other-goals" className="other-goals">
-        <div className="goals-section-title">{t("Further Goals")}</div>
-        {goals.slice(1).map((goal, i) =>
-          <details key={i}>
-            <summary>
-              <InteractiveCode fmt={goal.type} />
-            </summary>
-            <Goal typewriter={false} filter={filter} goal={goal} />
-          </details>)}
-      </div>}
-  </>
+    let { t } = useTranslation()
+    const { goals, filter } = props
+    return <>
+        {goals && goals.length > 1 &&
+            <div id="other-goals" className="other-goals">
+                <div className="goals-section-title">{t("Further Goals")}</div>
+                {goals.slice(1).map((goal, i) =>
+                    <details key={i}>
+                        <summary>
+                            <InteractiveCode fmt={goal.type} />
+                        </summary>
+                        <Goal typewriter={false} filter={filter} goal={goal} />
+                    </details>)}
+            </div>}
+    </>
 })
 
 interface GoalsProps {
@@ -249,7 +248,7 @@ export function Goals({ goals, filter }: GoalsProps) {
         return <></>
     } else {
         return <>
-          {goals.goals.map((g, i) => <Goal typewriter={false} key={i} goal={g.goal} filter={filter} />)}
+            {goals.goals.map((g, i) => <Goal typewriter={false} key={i} goal={g.goal} filter={filter} />)}
         </>
     }
 }
@@ -295,21 +294,21 @@ export const FilteredGoals = React.memo(({ headerChildren, goals }: FilteredGoal
         </a>
     const filterMenu = <span>
         {mkFilterButton(s => ({ ...s, showType: !s.showType }), gf => gf.showType, 'types')}
-        <br/>
+        <br />
         {mkFilterButton(s => ({ ...s, showInstance: !s.showInstance }), gf => gf.showInstance, 'instances')}
-        <br/>
+        <br />
         {mkFilterButton(s => ({ ...s, showHiddenAssumption: !s.showHiddenAssumption }), gf => gf.showHiddenAssumption, 'hidden assumptions')}
-        <br/>
+        <br />
         {mkFilterButton(s => ({ ...s, showLetValue: !s.showLetValue }), gf => gf.showLetValue, 'let-values')}
     </span>
 
     const isFiltered = !goalFilters.showInstance || !goalFilters.showType || !goalFilters.showHiddenAssumption || !goalFilters.showLetValue
     const filterButton =
         <WithTooltipOnHover mkTooltipContent={() => filterMenu}>
-            <a className={'link pointer mh2 dim codicon ' + (isFiltered ? 'codicon-filter-filled ': 'codicon-filter ')}/>
+            <a className={'link pointer mh2 dim codicon ' + (isFiltered ? 'codicon-filter-filled ' : 'codicon-filter ')} />
         </WithTooltipOnHover>
 
-    return <div style={{display: goals !== undefined ? 'block' : 'none'}}>
+    return <div style={{ display: goals !== undefined ? 'block' : 'none' }}>
         <details open>
             <summary className='mv2 pointer'>
                 {headerChildren}
@@ -322,44 +321,18 @@ export const FilteredGoals = React.memo(({ headerChildren, goals }: FilteredGoal
     </div>
 })
 
-export function loadGoals(
-  rpcSess: RpcSessionAtPos,
-  uri: string,
-  setProof: React.Dispatch<React.SetStateAction<ProofState>>,
-  setCrashed: React.Dispatch<React.SetStateAction<Boolean>>) {
-console.info('sending rpc request to load the proof state')
 
-rpcSess.call('Game.getProofState', DocumentPosition.toTdpp({line: 0, character: 0, uri: uri})).then(
-  (proof : ProofState) => {
-    if (typeof proof !== 'undefined') {
-      console.info(`received a proof state!`)
-      console.log(proof)
-      setProof(proof)
-      setCrashed(false)
-    } else {
-      console.warn('received undefined proof state!')
-      setCrashed(true)
-      // setProof(undefined)
-    }
-  }
-).catch((error) => {
-  setCrashed(true)
-  console.warn(error)
-})
+export function lastStepHasErrors(proof: ProofState): boolean {
+    if (!proof?.steps.length) { return false }
+
+    let diags = [...proof.steps[proof.steps.length - 1].diags, ...proof.diagnostics]
+
+    return diags.some(
+        (d) => (d.severity == DiagnosticSeverity.Error) // || d.severity == DiagnosticSeverity.Warning
+    )
 }
 
-
-export function lastStepHasErrors (proof : ProofState): boolean {
-  if (!proof?.steps.length) {return false}
-
-  let diags = [...proof.steps[proof.steps.length - 1].diags, ...proof.diagnostics]
-
-  return diags.some(
-    (d) => (d.severity == DiagnosticSeverity.Error ) // || d.severity == DiagnosticSeverity.Warning
-  )
-}
-
-export function isLastStepWithErrors (proof : ProofState, i: number): boolean {
-  if (!proof?.steps.length) {return false}
-  return (i == proof.steps.length - 1) && lastStepHasErrors(proof)
+export function isLastStepWithErrors(proof: ProofState, i: number): boolean {
+    if (!proof?.steps.length) { return false }
+    return (i == proof.steps.length - 1) && lastStepHasErrors(proof)
 }

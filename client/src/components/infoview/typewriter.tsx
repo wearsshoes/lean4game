@@ -18,9 +18,10 @@ import { Diagnostic } from 'vscode-languageserver-types';
 import { DocumentPosition } from '../../../../node_modules/lean4-infoview/src/infoview/util';
 import { RpcContext } from '../../../../node_modules/lean4-infoview/src/infoview/rpcSessions';
 import { DeletedChatContext, InputModeContext, MonacoEditorContext, ProofContext } from './context'
-import { goalsToString, lastStepHasErrors, loadGoals } from './goals'
+import { goalsToString, lastStepHasErrors } from './goals'
 import { GameHint, ProofState } from './rpc_api'
 import { useTranslation } from 'react-i18next'
+import { ProofStateContext } from '../proof_state'
 
 export interface GameDiagnosticsParams {
   uri: DocumentUri;
@@ -85,13 +86,8 @@ export function Typewriter({disabled}: {disabled?: boolean}) {
 
   const inputRef = useRef()
 
-  // The context storing all information about the current proof
-  const {proof, setProof, interimDiags, setInterimDiags, setCrashed} = React.useContext(ProofContext)
-
-  // state to store the last batch of deleted messages
+  const {proof, interimDiags, updateInterimDiags, setCrashed, loadProofState} = React.useContext(ProofStateContext)
   const {setDeletedChat} = React.useContext(DeletedChatContext)
-
-  const rpcSess = React.useContext(RpcContext)
 
   // Run the command
   const runCommand = React.useCallback(() => {
@@ -113,11 +109,11 @@ export function Typewriter({disabled}: {disabled?: boolean}) {
       }])
       setTypewriterInput('')
       // Load proof after executing edits
-      loadGoals(rpcSess, uri, setProof, setCrashed)
+      loadProofState()
     }
 
     editor.setPosition(pos)
-  }, [typewriterInput, editor])
+  }, [typewriterInput, editor, loadProofState])
 
   useEffect(() => {
     if (oneLineEditor && oneLineEditor.getValue() !== typewriterInput) {
@@ -125,10 +121,10 @@ export function Typewriter({disabled}: {disabled?: boolean}) {
     }
   }, [typewriterInput])
 
-  /* Load proof on start/switching to typewriter */
+  /* Load proof only when typewriter is first mounted */
   useEffect(() => {
-    loadGoals(rpcSess, uri, setProof, setCrashed)
-  }, [])
+    loadProofState()
+  }, []) // Empty dependency array since we only want this on mount
 
   /** If the last step has an error, add the command to the typewriter. */
   useEffect(() => {
@@ -137,39 +133,16 @@ export function Typewriter({disabled}: {disabled?: boolean}) {
     }
   }, [proof])
 
-  // React when answer from the server comes back
+  // Handle processing state locally, but let ProofStateContext handle diagnostics
   useServerNotificationEffect('textDocument/publishDiagnostics', (params: PublishDiagnosticsParams) => {
     if (params.uri == uri) {
       setProcessing(false)
 
-      console.log('Received lean diagnostics')
-      console.log(params.diagnostics)
-      setInterimDiags(params.diagnostics)
-
-      //loadGoals(rpcSess, uri, setProof)
-
-      // TODO: loadAllGoals()
       if (!hasErrors(params.diagnostics)) {
-        //setTypewriterInput("")
         editor.setPosition(editor.getModel().getFullModelRange().getEndPosition())
       }
-    } else {
-      // console.debug(`expected uri: ${uri}, got: ${params.uri}`)
-      // console.debug(params)
     }
-    // TODO: This is the wrong place apparently. Where do wee need to load them?
-    // TODO: instead of loading all goals every time, we could only load the last one
-    // loadAllGoals()
-  }, [uri]);
-
-  // // React when answer from the server comes back
-  // useServerNotificationEffect('$/game/publishDiagnostics', (params: GameDiagnosticsParams) => {
-  //   console.log('Received game diagnostics')
-  //   console.log(`diag. uri : ${params.uri}`)
-  //   console.log(params.diagnostics)
-
-  // }, [uri]);
-
+  }, [uri, editor]);
 
   useEffect(() => {
     const myEditor = monaco.editor.create(inputRef.current!, {
@@ -236,14 +209,6 @@ export function Typewriter({disabled}: {disabled?: boolean}) {
     return () => { l.dispose() }
   }, [oneLineEditor, runCommand])
 
-  // BUG: Causes `file closed` error
-  //TODO: Intention is to run once when loading, does that work?
-  useEffect(() => {
-    console.debug(`time to update: ${uri} \n ${rpcSess}`)
-    console.debug(rpcSess)
-    // console.debug('LOAD ALL GOALS')
-    // TODO: loadAllGoals()
-  }, [rpcSess])
 
   /** Process the entered command */
   const handleSubmit : React.FormEventHandler<HTMLFormElement> = (ev) => {

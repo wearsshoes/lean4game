@@ -11,8 +11,6 @@ import LandingPage from './components/landing_page'
 import Level from './components/level'
 import './i18n';
 
-
-
 // If `VITE_LEAN4GAME_SINGLE` is set to true, then `/` should be redirected to
 // `/g/local/game`. This is used for the devcontainer setup
 let single_game = (import.meta.env.VITE_LEAN4GAME_SINGLE == "true")

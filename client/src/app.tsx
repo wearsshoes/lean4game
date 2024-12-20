@@ -29,13 +29,11 @@ function App() {
   return (
     <div className="app">
       <GameIdContext.Provider value={gameId}>
-        <ProofStateProvider>
-          <PreferencesContext.Provider value={{mobile, layout, isSavePreferences, language, setLayout, setIsSavePreferences, setLanguage}}>
-            <React.Suspense>
-              <Outlet />
-            </React.Suspense>
-            </PreferencesContext.Provider>
-        </ProofStateProvider>
+        <PreferencesContext.Provider value={{mobile, layout, isSavePreferences, language, setLayout, setIsSavePreferences, setLanguage}}>
+            <ProofStateProvider>
+                <Outlet />
+            </ProofStateProvider>
+        </PreferencesContext.Provider>
       </GameIdContext.Provider>
     </div>
   )
