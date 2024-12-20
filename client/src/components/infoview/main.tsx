@@ -46,7 +46,7 @@ import path from 'path';
  */
 export function DualEditor({ level, codeviewRef, levelId, worldId, worldSize }) {
   const ec = React.useContext(EditorContext)
-  const { typewriterMode, lockEditorMode } = React.useContext(InputModeContext)
+  const { typewriterMode, lockInterfaceMode: lockEditorMode } = React.useContext(InputModeContext)
   return <>
     <div className={(typewriterMode && !lockEditorMode) ? 'hidden' : ''}>
       <ExerciseStatement data={level} showLeanStatement={true} />
@@ -64,7 +64,7 @@ export function DualEditor({ level, codeviewRef, levelId, worldId, worldSize }) 
 function DualEditorMain({ worldId, levelId, level, worldSize }: { worldId: string, levelId: number, level: LevelInfo, worldSize: number }) {
   const ec = React.useContext(EditorContext)
   const gameId = React.useContext(GameIdContext)
-  const { typewriterMode, lockEditorMode } = React.useContext(InputModeContext)
+  const { typewriterMode, lockInterfaceMode: lockEditorMode } = React.useContext(InputModeContext)
 
   const {proof, setProof} = React.useContext(ProofContext)
 

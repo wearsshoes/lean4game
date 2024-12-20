@@ -103,7 +103,7 @@ function PreviousButton({setNavOpen}) {
 function InputModeButton({setNavOpen, isDropdown}) {
   const { t } = useTranslation()
   const {levelId} = React.useContext(WorldLevelIdContext)
-  const {typewriterMode, setTypewriterMode, lockEditorMode} = React.useContext(InputModeContext)
+  const {typewriterMode, setTypewriterMode, lockInterfaceMode: lockEditorMode} = React.useContext(InputModeContext)
 
   /** toggle input mode if allowed */
   function toggleInputMode(ev: React.MouseEvent) {

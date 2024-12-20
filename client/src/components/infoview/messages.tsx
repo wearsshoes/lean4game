@@ -80,7 +80,7 @@ const MessageView = React.memo(({uri, diag}: MessageViewProps) => {
         message = diag.message
     }
 
-    const { typewriterMode, lockEditorMode } = React.useContext(InputModeContext)
+    const { typewriterMode, lockInterfaceMode: lockEditorMode } = React.useContext(InputModeContext)
 
     return (
     // <details open>
