@@ -72,16 +72,12 @@ export const DeletedChatContext = React.createContext<{
 export type UIMode = 'typewriter' | 'codeEditor' // | 'dragDrop'
 
 export const InputModeContext = React.createContext<{
-  uiMode: UIMode,
-  setUIMode: React.Dispatch<React.SetStateAction<UIMode>>,
   typewriterInput: string,
   setTypewriterInput: React.Dispatch<React.SetStateAction<string>>,
   lockUIMode: boolean,
   setLockUIMode: React.Dispatch<React.SetStateAction<boolean>>,
   uiModeCases: Record<UIMode, { icon: any, labelText: string }>,
 }>({
-  uiMode: 'typewriter',
-  setUIMode: () => { },
   typewriterInput: "",
   setTypewriterInput: () => { },
   lockUIMode: false,

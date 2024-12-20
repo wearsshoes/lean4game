@@ -150,7 +150,13 @@ export const useProofState = (): ProofStateManager => {
 
   const getDiagnostics = React.useCallback(async (startLine: number, endLine: number) => {
     if (!rpcServiceRef.current) throw new Error('RPC service not initialized')
-    return rpcServiceRef.current.getDiagnostics(startLine, endLine)
+    const interactiveDiagnostics = await rpcServiceRef.current.getDiagnostics(startLine, endLine)
+
+    // Map InteractiveDiagnostic to Diagnostic
+    return interactiveDiagnostics.map(diag => ({
+      ...diag,
+      message: extractTextFromTaggedText(diag.message) // Convert TaggedText to string
+    }))
   }, [])
 
   // Helper function to extract text from TaggedText<MsgEmbed>

@@ -83,6 +83,7 @@ export function Typewriter({disabled}: {disabled?: boolean}) {
   const [processing, setProcessing] = useState(false)
 
   const {typewriterInput, setTypewriterInput} = React.useContext(InputModeContext)
+  const proofState = React.useContext(ProofStateContext)
 
   const inputRef = useRef()
 
@@ -217,7 +218,7 @@ export function Typewriter({disabled}: {disabled?: boolean}) {
   }
 
   // do not display if the proof is completed (with potential warnings still present)
-  return <div className={`typewriter${proof?.completedWithWarnings ? ' hidden' : ''}${disabled ? ' disabled' : ''}`}>
+  return <div className={`typewriter${proof?.completedWithWarnings ? ' hidden' : ''}${disabled || proofState.uiMode !== 'typewriter' ? ' disabled' : ''}`}>
       <form onSubmit={handleSubmit}>
         <div className="typewriter-input-wrapper">
           <div ref={inputRef} className="typewriter-input" />
